@@ -1,0 +1,2520 @@
+<script>
+  // ==========================================
+  // 🛡️ โซนที่ 1: ระบบตัวแปรหลัก (Global Variables)
+  // ==========================================
+  var isVoiceEnabled = false; 
+  var assetMasterList = []; 
+  var openTransactionsData = []; 
+  var currentStep = 1; 
+  var totalSteps = 4; 
+  var GITHUB_SCANNER_URL = "https://nu-nonl-dev.github.io/tha-scanner"; 
+  var APP_EXEC_URL = "https://script.google.com/macros/s/AKfycbxP73jILpsFQlkRYRud5_SwdUe6Mm1bFfgmPDaj8g1w1MiCBrdXWRamNw9ydw5mBiew/exec";
+  var scanTargetInput = ""; 
+
+  // ==========================================
+  // 🎙️ โซนที่ 2: เครื่องยนต์ J.A.R.V.I.S. (AI Voice)
+  // ==========================================
+  if ('speechSynthesis' in window) { window.speechSynthesis.onvoiceschanged = function() { window.speechSynthesis.getVoices(); }; }
+
+  function toggleVoice() {
+    isVoiceEnabled = !isVoiceEnabled;
+    var btn = document.getElementById('voiceToggleBtn');
+    var icon = document.getElementById('voiceIcon');
+    var text = document.getElementById('voiceText');
+    var pulse = document.getElementById('voicePulse');
+    
+    if (isVoiceEnabled) {
+      if(icon) icon.innerHTML = '🔊';
+      if(text) { text.innerHTML = 'AI:ON'; text.className = 'text-xs font-bold tracking-widest text-green-300 transition-colors'; }
+      if(btn) btn.classList.add('border-green-400/50', 'bg-green-900/40');
+      if(pulse) pulse.classList.add('animate-ping', 'opacity-75'); 
+      
+      var currentSubtitle = document.getElementById('headerSubtitle') ? document.getElementById('headerSubtitle').innerText : "";
+      
+      if (currentSubtitle.includes("Command Center") || currentSubtitle.includes("Dashboard")) {
+          speakAI('ระบบเสียงเปิดใช้งานแล้วค่ะ, โหมดข้อมูล Dashboard พร้อมใช้งานค่ะ');
+      } else if (currentSubtitle.includes("Asset Registration")) {
+          speakAI('ระบบเสียงเปิดใช้งานแล้วค่ะ, สำหรับการขึ้นทะเบียนสินทรัพย์ใหม่, กรุณากรอกข้อมูลให้ครบทั้ง 4 หน้าตามลำดับนะค่ะ');
+      } else {
+          speakAI('ระบบเสียงเปิดใช้งานแล้วค่ะ, ยินดีต้อนรับเข้าสู่ระบบ Smart Asset Management ค่ะ');
+      }
+
+    } else {
+      if(icon) icon.innerHTML = '🔇';
+      if(text) { text.innerHTML = 'AI:OFF'; text.className = 'text-xs font-bold tracking-widest text-blue-100 transition-colors'; }
+      if(btn) btn.classList.remove('border-green-400/50', 'bg-green-900/40');
+      if(pulse) pulse.classList.remove('animate-ping', 'opacity-75');
+      if('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+  }
+
+  function speakAI(text, isAlert) {
+    if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel(); 
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'th-TH'; 
+    if (isAlert) { utterance.pitch = 1.3; utterance.rate = 1.0; }
+    else { utterance.pitch = 1.1; utterance.rate = 0.95; }
+    window.speechSynthesis.speak(utterance);
+  }
+
+  // ==========================================
+  // 🔽 โซนที่ 3: ระบบ UI & Navigation (J.A.R.V.I.S. Integrated)
+  // ==========================================
+  
+  /**
+   * ตรวจสอบการแสดง/ซ่อน ปุ่ม Scroll และ ปุ่ม Refresh
+   */
+  function checkScrollIndicator() {
+    var scrollBtn = document.getElementById('scrollIndicator');
+    var refreshBtn = document.getElementById('refreshDataContainer'); // ⚡ เพิ่มการอ้างอิงปุ่ม Refresh
+    
+    if (!scrollBtn && !refreshBtn) return;
+
+    var isScrollable = document.documentElement.scrollHeight > window.innerHeight + 50;
+    var isAtBottom = (window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 80;
+
+    // เงื่อนไขการแสดงผล (ใช้ Logic เดิมของคุณ)
+    if (isScrollable && !isAtBottom) { 
+      if (scrollBtn) { scrollBtn.style.opacity = '1'; scrollBtn.style.pointerEvents = 'auto'; }
+      if (refreshBtn) { refreshBtn.style.opacity = '1'; refreshBtn.style.pointerEvents = 'auto'; }
+    } 
+    else { 
+      if (scrollBtn) { scrollBtn.style.opacity = '0'; scrollBtn.style.pointerEvents = 'none'; }
+      if (refreshBtn) { refreshBtn.style.opacity = '0'; refreshBtn.style.pointerEvents = 'none'; }
+    }
+  }
+  window.addEventListener('scroll', checkScrollIndicator);
+
+  /**
+   * ฟังก์ชันจัดการการรีเฟรช (Sci-Fi Loading Effect + Time Sync Double Blink)
+   */
+  function handleRefreshClick(btn) {
+    btn.classList.add('!bg-[#2563eb]', '!text-white', 'shadow-[0_0_15px_rgba(37,99,235,0.6)]');
+
+    const ringOuter = document.getElementById('ringOuter');
+    const ringInner = document.getElementById('ringInner');
+    const coreIcon = document.getElementById('coreIcon'); 
+
+    if(ringOuter) { ringOuter.classList.replace('border-transparent', 'border-[#04d4d4]'); ringOuter.classList.add('animate-spin'); }
+    if(ringInner) { ringInner.classList.replace('border-transparent', 'border-blue-400'); ringInner.classList.add('animate-spin'); }
+    if(coreIcon) { coreIcon.classList.add('text-[#04d4d4]', 'animate-spin'); }
+
+    console.log("J.A.R.V.I.S. Core Syncing...");
+
+    // ส่งคำสั่งดึงข้อมูล
+    if (typeof loadDashboardData === "function") {
+        loadDashboardData(true); 
+    } else if (typeof initDashboard === "function") {
+        initDashboard();
+    }
+
+    // ⏱️ ตั้งเวลา 1.5 วินาทีให้เฟืองหยุด
+    setTimeout(() => {
+        if(ringOuter) { ringOuter.classList.remove('animate-spin'); ringOuter.classList.replace('border-[#04d4d4]', 'border-transparent'); }
+        if(ringInner) { ringInner.classList.remove('animate-spin'); ringInner.classList.replace('border-blue-400', 'border-transparent'); }
+        if(coreIcon) { coreIcon.classList.remove('text-[#04d4d4]', 'animate-spin'); }
+
+        btn.classList.remove('!bg-[#2563eb]', '!text-white', 'shadow-[0_0_15px_rgba(37,99,235,0.6)]');
+        btn.blur();
+
+        // ⚡ [อัปเกรดล่าสุด] อัปเดตเวลา + เอฟเฟกต์กระพริบ 2 ครั้งแบบ Sci-Fi
+        const timeEl = document.getElementById('syncTimeText');
+        if (timeEl) {
+            // อัปเดตเป็นเวลาล่าสุด
+            timeEl.innerText = `อัปเดต: ${new Date().toLocaleTimeString('th-TH')}`;
+            
+            // สั่งกระพริบ 2 รอบ (สว่าง -> ดับ -> สว่าง -> ดับ -> กลับเป็นปกติ)
+            timeEl.animate([
+                { opacity: 1, color: '#04d4d4', transform: 'scale(1.1)' }, // 1. สว่างวาบ (Cyan)
+                { opacity: 1, color: '#0000FF', transform: 'scale(1.1)' }, // 1. สว่างวาบ (Cyan)
+                { opacity: 0, color: '#04d4d4', transform: 'scale(1.1)' }, // 2. ดับ
+                { opacity: 1, color: '#0000FF', transform: 'scale(1.1)' }, // 3. สว่างวาบ (Cyan)
+                { opacity: 1, color: '#04d4d4', transform: 'scale(1.1)' }, // 3. สว่างวาบ (Cyan)
+                { opacity: 0, color: '#0000FF', transform: 'scale(1.1)' }, // 4. ดับ
+                { opacity: 1, transform: 'scale(1)' }                      // 5. คืนค่าปกติ
+            ], {
+                duration: 600, // ความเร็วรวม 0.6 วินาที (กำลังสวย ไม่ตาลาย)
+                iterations: 1,
+                easing: 'ease-in-out'
+            });
+        }
+    }, 1500); 
+  }
+
+  // --- ฟังก์ชันอื่นๆ (switchView, toggleSidebar, switchBorrowTab) ของคุณทำงานตามเดิม --- //
+
+  // ⚡ สลับหน้าจอเมนูหลัก (พร้อมรองรับ GMRL)
+  function switchView(viewName) {
+    try {
+      if (viewName === 'dashboard') {
+        if (typeof loadDashboardData === 'function') loadDashboardData();
+      }
+      // ⚡ J.A.R.V.I.S. Update: รองรับหน้า GMRL
+      if (viewName === 'gmrl') {
+        if (typeof initGmrlPage === 'function') initGmrlPage();
+      }
+    } catch (e) {
+      console.error("View Trigger Error:", e);
+    }
+
+    document.querySelectorAll('.app-view').forEach(function(el) { el.classList.remove('active'); setTimeout(function() { el.style.display = 'none'; }, 300); });
+    document.querySelectorAll('.menu-item').forEach(function(el) { el.classList.remove('bg-blue-50', 'text-brandBlue', 'font-bold', 'border-r-4', 'border-brandBlue'); el.classList.add('text-gray-600', 'font-semibold'); });
+    
+    var target = document.getElementById('view-' + viewName); 
+    var menu = document.getElementById('menu-' + viewName); 
+    var subtitle = document.getElementById('headerSubtitle');
+    
+    if(target) setTimeout(function() { target.style.display = 'block'; setTimeout(function() { target.classList.add('active'); }, 50); }, 300);
+    if(menu) { menu.classList.remove('text-gray-600', 'font-semibold'); menu.classList.add('bg-blue-50', 'text-brandBlue', 'font-bold', 'border-r-4', 'border-brandBlue'); }
+    
+    if(subtitle) {
+        if(viewName==='asset') { subtitle.innerText = "Asset Registration"; if(typeof speakAI === 'function') speakAI("โหมด ขึ้นทะเบียนอุปกรณ์และเครื่องมือ พร้อมใช้งานค่ะ"); }
+        if(viewName==='maintenance') { subtitle.innerText = "Maintenance / PM"; if(typeof speakAI === 'function') speakAI("โหมด บันทึกซ่อมบำรุง และ พีเอ็ม พร้อมใช้งานค่ะ"); }
+        if(viewName==='borrow') { subtitle.innerText = "Borrow / Return"; if(typeof speakAI === 'function') speakAI("โหมด ยืมคืนอุปกรณ์และเครื่องมือ พร้อมใช้งานค่ะ"); }
+        if(viewName==='transfer') { subtitle.innerText = "Transfer Asset"; if(typeof speakAI === 'function') speakAI("โหมด โอนย้ายสินทรัพย์ระหว่างสาขา พร้อมใช้งานค่ะ"); }
+        if(viewName==='dashboard') { subtitle.innerText = "Command Center"; if(typeof speakAI === 'function') speakAI("ยินดีต้อนรับเข้าสู่โหมด Smart Dashboard นะค่ะ"); }
+        
+        // ⚡ J.A.R.V.I.S. Update: เปลี่ยน Subtitle สำหรับหน้า Reprint Tag
+        if(viewName==='reprint-tag') { 
+            subtitle.innerText = "Reprint Asset Tag"; 
+            if(typeof speakAI === 'function') speakAI("โหมด สร้างป้าย Tag QR ทดแทน พร้อมใช้งานค่ะ"); 
+        }
+        // ⚡ J.A.R.V.I.S. Update: เปลี่ยน Subtitle และ AI สำหรับหน้า GMRL
+        if(viewName==='gmrl') { 
+            subtitle.innerText = "General Repair Log"; 
+            if(typeof speakAI === 'function') speakAI("โหมด บันทึกงานซ่อมบำรุงทั่วไป พร้อมใช้งานค่ะ"); 
+        }
+    }
+
+    var overlay = document.getElementById('sidebarOverlay');
+    if(overlay && !overlay.classList.contains('hidden')) {
+        if(typeof toggleSidebar === 'function') toggleSidebar(); 
+    }
+    
+    if(typeof checkScrollIndicator === 'function') setTimeout(checkScrollIndicator, 350);
+  }
+
+  function switchBorrowTab(tab) {
+    var btnB = document.getElementById('tabBorrow'); var btnR = document.getElementById('tabReturn');
+    var formB = document.getElementById('borrowForm'); var formR = document.getElementById('returnForm');
+    if (tab === 'borrow') {
+      if(btnB) btnB.className = "flex-1 py-3 text-sm font-bold rounded-lg bg-white shadow-sm border-2 border-brandBlue text-brandBlue transition-all";
+      if(btnR) btnR.className = "flex-1 py-3 text-sm font-bold rounded-lg border-2 border-transparent text-gray-500 hover:text-brandDark transition-all";
+      if(formB) formB.classList.remove('hidden'); if(formR) formR.classList.add('hidden');
+    } else {
+      if(btnR) btnR.className = "flex-1 py-3 text-sm font-bold rounded-lg bg-white shadow-sm border-2 border-brandBlue text-brandBlue transition-all";
+      if(btnB) btnB.className = "flex-1 py-3 text-sm font-bold rounded-lg border-2 border-transparent text-gray-500 hover:text-brandDark transition-all";
+      if(formR) formR.classList.remove('hidden'); if(formB) formB.classList.add('hidden');
+      google.script.run.withSuccessHandler(populateOpenTransList).getOpenTransactions();
+    }
+    setTimeout(checkScrollIndicator, 350); 
+  }
+
+  function toggleSidebar() {
+    var sb = document.getElementById('sidebar'); var overlay = document.getElementById('sidebarOverlay');
+    var icon = document.getElementById('sidebarIcon'); var btn = document.getElementById('sidebarToggleBtn');
+    var hamburgerBtn = document.getElementById('mainNavHamburger'); 
+    var line1 = document.getElementById('navLine1'); var line2 = document.getElementById('navLine2'); var line3 = document.getElementById('navLine3');
+
+    if (sb && overlay) {
+      if (sb.classList.contains('translate-x-full')) {
+        sb.classList.remove('translate-x-full'); overlay.classList.remove('hidden');
+        if(icon) icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>'; 
+        if(btn) btn.classList.replace('opacity-40', 'opacity-100'); if(hamburgerBtn) hamburgerBtn.style.opacity = '0'; 
+        if(line1) { line1.classList.add('rotate-45', 'translate-y-[7.5px]'); if(line2) line2.classList.add('opacity-0', 'translate-x-4'); if(line3) line3.classList.add('-rotate-45', '-translate-y-[7.5px]'); }
+      } else {
+        sb.classList.add('translate-x-full'); overlay.classList.add('hidden');
+        if(icon) icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>'; 
+        if(btn) btn.classList.replace('opacity-100', 'opacity-40'); if(hamburgerBtn) hamburgerBtn.style.opacity = '1'; 
+        if(line1) { line1.classList.remove('rotate-45', 'translate-y-[7.5px]'); if(line2) line2.classList.remove('opacity-0', 'translate-x-4'); if(line3) line3.classList.remove('-rotate-45', '-translate-y-[7.5px]'); }
+      }
+    }
+  }
+
+  // ==========================================
+  // 🎨 โซนที่ 4: เอฟเฟกต์ช่องกรอก (Smart Inputs & Form Behaviors)
+  // ==========================================
+  function initWaveLabels() { document.querySelectorAll('.wave-label').forEach(function(label) { var text = label.innerText; label.innerHTML = text.split('').map(function(letter, idx) { return '<span style="transition-delay: ' + (idx * 25) + 'ms">' + (letter === ' ' ? '&nbsp;' : letter) + '</span>'; }).join(''); }); }
+  
+  function initWaveInputs() { 
+      var updateInputState = function(input) { 
+          if (input.value && input.value.trim() !== "") input.classList.add('has-value'); 
+          else input.classList.remove('has-value'); 
+      }; 
+      document.querySelectorAll('.wave-input, .wave-textarea').forEach(function(input) { 
+          updateInputState(input); 
+          input.addEventListener('input', function() { updateInputState(input); }); 
+          input.addEventListener('change', function() { updateInputState(input); }); 
+      }); 
+  }
+
+  function toggleDropdownClearBtn(selectEl) {
+      var container = selectEl.closest('.wave-group'); if(!container) return;
+      var arrow = container.querySelector('.select-arrow');
+      var clearBtn = container.querySelector('.input-clear-btn');
+      
+      if (selectEl.value && selectEl.value !== '') {
+          if(arrow) arrow.classList.add('hidden');
+          if(clearBtn) clearBtn.classList.remove('hidden');
+      } else {
+          if(arrow) arrow.classList.remove('hidden');
+          if(clearBtn) clearBtn.classList.add('hidden');
+      }
+  }
+
+  function clearSelectField(btn) {
+      var container = btn.closest('.wave-group'); if(!container) return;
+      var selectEl = container.querySelector('select');
+      if (selectEl) {
+          selectEl.value = '';
+          toggleDropdownClearBtn(selectEl); 
+          if(typeof toggleDropdownNew === 'function') toggleDropdownNew(selectEl.id); 
+      }
+  }
+
+  function autoResizeTextarea(el) {
+    el.style.height = ''; 
+    el.style.height = el.scrollHeight + 'px'; 
+    toggleInputClearBtn(el);
+  }
+
+  function toggleInputClearBtn(el) {
+      var container = el.closest('.wave-group'); if(!container) return;
+      var clearBtn = container.querySelector('.input-clear-btn');
+      if (clearBtn) {
+          if (el.value.trim() !== '') clearBtn.classList.remove('hidden');
+          else clearBtn.classList.add('hidden');
+      }
+  }
+
+  function clearInputField(btn) {
+      var container = btn.closest('.wave-group'); if(!container) return;
+      var inputEl = container.querySelector('input, textarea');
+      if (inputEl) {
+          inputEl.value = '';
+          inputEl.classList.remove('has-value');
+          toggleInputClearBtn(inputEl); 
+          if (inputEl.tagName.toLowerCase() === 'textarea') inputEl.style.height = ''; 
+          inputEl.focus();
+      }
+  }
+
+  // ==========================================
+  // ⚙️ โซนที่ 5: การควบคุม Dropdown ตัวเลือก "อื่นๆ"
+  // ==========================================
+  function toggleDropdownNew(selectId) {
+    var select = document.getElementById(selectId);
+    var newDiv = document.getElementById('new_' + selectId);
+    if(!newDiv) return;
+    var newInput = newDiv.querySelector('input, textarea');
+    
+    if (select.value === 'อื่นๆ' || select.value === 'other') {
+      newDiv.classList.remove('hidden');
+      if(newInput) { newInput.required = true; newInput.focus(); }
+    } else {
+      newDiv.classList.add('hidden');
+      if(newInput) { newInput.required = false; newInput.value = ''; newInput.classList.remove('has-value'); if (newInput.tagName.toLowerCase() === 'textarea') newInput.style.height = ''; }
+    }
+    initWaveInputs();
+    setTimeout(checkScrollIndicator, 100);
+  }
+
+  function toggleNewMtTechnician() { var select = document.getElementById('mtTechnicianSelect'); var div = document.getElementById('newMtTechnicianDiv'); var input = document.getElementById('newMtTechnician'); if (select.value === 'other') { div.classList.remove('hidden'); input.required = true; input.focus(); } else { div.classList.add('hidden'); input.required = false; input.value = ''; input.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+  function toggleNewMtType() { var select = document.getElementById('mtType'); var newDiv = document.getElementById('newMtTypeDiv'); var newInput = document.getElementById('newMtType'); if (select.value === 'อื่นๆ') { newDiv.classList.remove('hidden'); newInput.required = true; newInput.focus(); } else { newDiv.classList.add('hidden'); newInput.required = false; newInput.value = ''; newInput.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+  function toggleNewBrIssuer() { var select = document.getElementById('brIssuerSelect'); var div = document.getElementById('newBrIssuerDiv'); var input = document.getElementById('newBrIssuer'); if (select.value === 'other') { div.classList.remove('hidden'); input.required = true; input.focus(); } else { div.classList.add('hidden'); input.required = false; input.value = ''; input.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+  function toggleNewBrCondition() { var select = document.getElementById('brCondition'); var div = document.getElementById('newBrConditionDiv'); var input = document.getElementById('newBrCondition'); if (select.value === 'other') { div.classList.remove('hidden'); input.required = true; input.focus(); } else { div.classList.add('hidden'); input.required = false; input.value = ''; input.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+  function toggleNewRtCondition() { var select = document.getElementById('rtCondition'); var div = document.getElementById('newRtConditionDiv'); var input = document.getElementById('newRtCondition'); if (select.value === 'other') { div.classList.remove('hidden'); input.required = true; input.focus(); } else { div.classList.add('hidden'); input.required = false; input.value = ''; input.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+  function toggleNewRtReceiver() { var select = document.getElementById('rtReceiver'); var div = document.getElementById('newRtReceiverDiv'); var input = document.getElementById('newRtReceiver'); if (select.value === 'other') { div.classList.remove('hidden'); input.required = true; input.focus(); } else { div.classList.add('hidden'); input.required = false; input.value = ''; input.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+  function toggleNewTfDestination() { var select = document.getElementById('tfDestination'); var div = document.getElementById('newTfDestinationDiv'); var input = document.getElementById('newTfDestination'); if (select.value === 'other') { div.classList.remove('hidden'); input.required = true; input.focus(); } else { div.classList.add('hidden'); input.required = false; input.value = ''; input.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+  function toggleNewTfIssuer() { var select = document.getElementById('tfIssuer'); var div = document.getElementById('newTfIssuerDiv'); var input = document.getElementById('newTfIssuer'); if (select.value === 'other') { div.classList.remove('hidden'); input.required = true; input.focus(); } else { div.classList.add('hidden'); input.required = false; input.value = ''; input.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+  function toggleNewTfCondition() { var select = document.getElementById('tfCondition'); var div = document.getElementById('newTfConditionDiv'); var input = document.getElementById('newTfCondition'); if (select.value === 'other') { div.classList.remove('hidden'); input.required = true; input.focus(); } else { div.classList.add('hidden'); input.required = false; input.value = ''; input.classList.remove('has-value'); } initWaveInputs(); setTimeout(checkScrollIndicator, 100); }
+
+  // ==========================================
+  // 🌟 โซนที่ 6: การจัดการฟอร์ม (โหมดขึ้นทะเบียน & ประกัน)
+  // ==========================================
+  function toggleRegType(mode) {
+    var typeEl = document.getElementById('regTypeMode'); if(typeEl) typeEl.value = mode;
+    var btnNew = document.getElementById('typeNewBtn');
+    var btnTransfer = document.getElementById('typeTransferBtn');
+    var tfContainer = document.getElementById('transferInContainer');
+    var bypassMsg = document.getElementById('warrantyBypassMsg');
+    var bypassFields = document.querySelectorAll('.tf-bypass');
+
+    var tfInputs = [
+        document.getElementById('tfInOrigin'),
+        document.getElementById('tfInReceiver'),
+        document.getElementById('tfInCondition')
+    ];
+
+    if (mode === 'transfer') {
+      if(btnTransfer) btnTransfer.className = "flex-1 py-3 text-[15px] font-black rounded-xl bg-white shadow-md border border-gray-100 text-brandBlue transition-all transform scale-[1.02] z-10";
+      if(btnNew) btnNew.className = "flex-1 py-3 text-[15px] font-bold rounded-xl border border-transparent text-gray-500 hover:text-brandDark hover:bg-gray-200/50 transition-all z-0";
+      
+      if(tfContainer) tfContainer.classList.remove('hidden');
+      if(bypassMsg) bypassMsg.classList.remove('hidden');
+      
+      bypassFields.forEach(function(f) { f.removeAttribute('required'); f.classList.remove('input-error'); });
+      tfInputs.forEach(function(el) { if(el) el.required = true; });
+      if (typeof speakAI === 'function') speakAI("เข้าสู่โหมด รับโอนย้ายอุปกรณ์และเครื่องมือเข้าสาขา");
+      
+    } else {
+      if(btnNew) btnNew.className = "flex-1 py-3 text-[15px] font-black rounded-xl bg-white shadow-md border border-gray-100 text-brandBlue transition-all transform scale-[1.02] z-10";
+      if(btnTransfer) btnTransfer.className = "flex-1 py-3 text-[15px] font-bold rounded-xl border border-transparent text-gray-500 hover:text-brandDark hover:bg-gray-200/50 transition-all z-0";
+      
+      if(tfContainer) tfContainer.classList.add('hidden');
+      if(bypassMsg) bypassMsg.classList.add('hidden');
+      
+      bypassFields.forEach(function(f) { f.setAttribute('required', 'true'); });
+      tfInputs.forEach(function(el) { if(el) { el.required = false; el.value = ""; toggleDropdownClearBtn(el); } });
+      if (typeof speakAI === 'function') speakAI("เข้าสู่โหมด ขึ้นทะเบียนอุปกรณ์และเครื่องมือใหม่");
+    }
+  }
+
+  function toggleWarrantyLock(hasWarranty) {
+    var toggleInputs = document.querySelectorAll('.w-toggle');
+    var toggleLabels = document.querySelectorAll('.w-label');
+
+    toggleInputs.forEach(function(input) {
+      if (hasWarranty) {
+        input.required = true; 
+        if (!input.classList.contains('tf-bypass-locked')) { input.disabled = false; }
+        input.classList.remove('opacity-50', 'bg-gray-100');
+      } else {
+        input.required = false; 
+        input.disabled = false; 
+        input.classList.remove('has-value');
+        input.classList.add('opacity-50', 'bg-gray-100'); 
+      }
+    });
+
+    toggleLabels.forEach(function(label) {
+      if (hasWarranty) { if (!label.innerHTML.includes('*')) label.innerHTML += '*'; } 
+      else { label.innerHTML = label.innerHTML.replace('*', ''); }
+    });
+    initWaveInputs(); 
+  }
+
+  // ==========================================
+  // 🧩 โซนที่ 7: SMART DROPDOWN MODULE
+  // ==========================================
+  var smartDropdownData = {}; 
+
+  function initSmartDropdown(config) {
+    var id = config.id;
+    smartDropdownData[id] = config.data || [];
+    
+    var displayInput = document.getElementById(id + 'Display');
+    var hiddenInput = document.getElementById(id);
+    var listEl = document.getElementById(id + 'CustomList');
+    var clearBtn = document.getElementById('clear_' + id + '_dropdown');
+    var arrowIcon = document.getElementById(id + '_arrowIcon');
+    var container = document.getElementById(id + 'Container');
+    
+    if(!displayInput || !hiddenInput || !listEl) return;
+
+    displayInput.addEventListener('input', function() {
+      renderSmartDropdown(id, this.value, config.allowOther);
+      if(clearBtn) clearBtn.classList.toggle('hidden', this.value === '');
+    });
+
+    displayInput.addEventListener('focus', function() {
+      renderSmartDropdown(id, this.value, config.allowOther);
+      listEl.classList.add('active');
+      if(arrowIcon) arrowIcon.classList.add('rotate-180');
+    });
+
+    document.addEventListener('click', function(e) {
+      if (container && !container.contains(e.target)) {
+        listEl.classList.remove('active');
+        if(arrowIcon) arrowIcon.classList.remove('rotate-180');
+        
+        if(hiddenInput.value === '' && displayInput.value !== '') {
+           displayInput.value = ''; 
+           if(clearBtn) clearBtn.classList.add('hidden');
+           displayInput.classList.remove('has-value');
+        }
+      }
+    });
+  }
+
+  function toggleSmartDropdown(id) {
+    var listEl = document.getElementById(id + 'CustomList');
+    var displayInput = document.getElementById(id + 'Display');
+    var arrowIcon = document.getElementById(id + '_arrowIcon');
+    var container = document.getElementById(id + 'Container');
+    var allowOther = container ? (container.getAttribute('data-allow-other') === 'true') : true;
+
+    if(listEl.classList.contains('active')) {
+       listEl.classList.remove('active');
+       if(arrowIcon) arrowIcon.classList.remove('rotate-180');
+    } 
+    else {
+       renderSmartDropdown(id, displayInput.value, allowOther);
+       listEl.classList.add('active');
+       if(arrowIcon) arrowIcon.classList.add('rotate-180');
+       displayInput.focus();
+    }
+
+    setTimeout(() => {
+        if (listEl && listEl.classList.contains('active')) {
+            const rect = listEl.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight) {
+                container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, 50);
+  }
+
+  function renderSmartDropdown(id, filterText, allowOther) {
+    var listEl = document.getElementById(id + 'CustomList');
+    if(!listEl) return;
+    
+    listEl.innerHTML = '';
+    var searchTerms = filterText.toLowerCase().trim().split(/\s+/);
+    var filtered = smartDropdownData[id].filter(function(item) {
+       return searchTerms.every(function(term) { return item.toLowerCase().indexOf(term) !== -1; });
+    });
+
+    filtered.forEach(function(val) {
+      var li = document.createElement('li');
+      li.className = 'smart-dropdown-item';
+      li.textContent = val;
+      li.onmousedown = function(e) { e.preventDefault(); selectSmartDropdown(id, val, false); }; 
+      listEl.appendChild(li);
+    });
+
+    if(allowOther) {
+      var addLi = document.createElement('li');
+      addLi.className = 'smart-dropdown-item add-new';
+      addLi.textContent = "+ อื่นๆ (พิมพ์เพิ่มเอง)...";
+      addLi.onmousedown = function(e) { e.preventDefault(); selectSmartDropdown(id, 'อื่นๆ', true); };
+      listEl.appendChild(addLi);
+    }
+  }
+
+  function selectSmartDropdown(id, val, isOther) {
+    var displayInput = document.getElementById(id + 'Display');
+    var hiddenInput = document.getElementById(id);
+    var listEl = document.getElementById(id + 'CustomList');
+    var newDiv = document.getElementById('new_' + id);
+    var clearBtn = document.getElementById('clear_' + id + '_dropdown');
+    var arrowIcon = document.getElementById(id + '_arrowIcon'); 
+
+    if(isOther) {
+      displayInput.value = 'อื่นๆ (โปรดระบุด้านล่าง)';
+      hiddenInput.value = 'อื่นๆ';
+      if(newDiv) {
+          newDiv.classList.remove('hidden');
+          var newInput = newDiv.querySelector('input, textarea');
+          if(newInput) { newInput.required = true; newInput.focus(); }
+      }
+    } else {
+      displayInput.value = val;
+      hiddenInput.value = val;
+      if(newDiv) {
+          newDiv.classList.add('hidden');
+          var newInput = newDiv.querySelector('input, textarea');
+          if(newInput) { newInput.required = false; newInput.value = ''; newInput.classList.remove('has-value'); }
+      }
+    }
+    
+    displayInput.classList.add('has-value');
+    if(clearBtn) clearBtn.classList.remove('hidden');
+    
+    listEl.classList.remove('active');
+    if(arrowIcon) arrowIcon.classList.remove('rotate-180');
+    
+    if(typeof initWaveInputs === 'function') initWaveInputs(); 
+  }
+
+  function clearSmartDropdown(id) {
+    var displayInput = document.getElementById(id + 'Display');
+    var hiddenInput = document.getElementById(id);
+    var clearBtn = document.getElementById('clear_' + id + '_dropdown');
+    var newDiv = document.getElementById('new_' + id);
+    var arrowIcon = document.getElementById(id + '_arrowIcon');
+    
+    if(displayInput) { displayInput.value = ''; displayInput.classList.remove('has-value'); displayInput.focus(); }
+    if(hiddenInput) hiddenInput.value = '';
+    if(clearBtn) clearBtn.classList.add('hidden');
+    if(newDiv) {
+        newDiv.classList.add('hidden');
+        var newInput = newDiv.querySelector('input, textarea');
+        if(newInput) { newInput.required = false; newInput.value = ''; newInput.classList.remove('has-value'); }
+    }
+    if(arrowIcon) arrowIcon.classList.add('rotate-180');
+    renderSmartDropdown(id, '', true); 
+  }
+
+  // ==========================================
+  // 📚 โซนที่ 8: ฟังก์ชันดึงข้อมูลจาก Server (Google Sheets)
+  // ==========================================
+  function updateCategoryDropdown(categories) {
+     initSmartDropdown({ id: 'category', data: categories, allowOther: true });
+  }
+
+  function populateDynamicDropdowns(data) {
+    initSmartDropdown({ id: 'mtType', data: data.mtTypes || ['PM. ตรวจเช็คตามรอบ', 'PM. ล้างแอร์', 'PM. บำรุงรักษา', 'ซ่อม.ไม่เสียเงิน', 'ซ่อม.จ่ายเงิน', 'ซ่อม.เคลมประกัน', 'จากการติดตั้งใหม่'], allowOther: true });
+    initSmartDropdown({ id: 'mtTechnicianSelect', data: data.mtTechs, allowOther: true });
+
+    initSmartDropdown({ id: 'brCondition', data: data.brConds, allowOther: true });
+    initSmartDropdown({ id: 'rtCondition', data: data.brConds, allowOther: true });
+    initSmartDropdown({ id: 'brIssuerSelect', data: data.brIssuers, allowOther: true });
+    initSmartDropdown({ id: 'rtReceiver', data: data.brIssuers, allowOther: true });
+
+    initSmartDropdown({ id: 'currentStatus', data: data.currentStatus || ['ใช้งานปกติ', 'Stock.ของใหม่[ยังไม่ใช้งาน]', 'Stock.ของเก่า[ยังใช้งานได้]', 'ส่งซ่อม', 'ชำรุด[รอทิ้ง]', 'ชำรุด[รอจำหน่าย]'], allowOther: true });
+    initSmartDropdown({ id: 'warrantyPart', data: data.warrantyParts, allowOther: true }); 
+
+    initSmartDropdown({ id: 'tfDestination', data: data.tfDestinations, allowOther: true });
+    initSmartDropdown({ id: 'tfIssuer', data: data.tfIssuers, allowOther: true });
+    initSmartDropdown({ id: 'tfCondition', data: data.tfConditions, allowOther: true });
+
+    initSmartDropdown({ id: 'tfInOrigin', data: data.tfDestinations, allowOther: true });
+    initSmartDropdown({ id: 'tfInReceiver', data: data.tfIssuers, allowOther: true });
+    initSmartDropdown({ id: 'tfInCondition', data: data.tfConditions, allowOther: true });
+  }
+
+  function populateAssetLists(data) { 
+      assetMasterList = data; 
+      var datalist = document.getElementById('mtAssetList'); 
+      if(datalist) {
+          datalist.innerHTML = ''; 
+          data.forEach(function(item) { 
+              var text = item.id + ' - ' + item.name + ' (' + item.category + ')'; 
+              datalist.appendChild(new Option(text, text)); 
+          }); 
+      }
+      
+      var dimList = document.getElementById('dimList');
+      var locList = document.getElementById('locList');
+      if (dimList || locList) {
+          var dims = []; var locs = [];
+          data.forEach(function(item) {
+              if (item.dimensions && dims.indexOf(item.dimensions) === -1) dims.push(item.dimensions);
+              if (item.location && locs.indexOf(item.location) === -1) locs.push(item.location);
+          });
+          if (dimList) { dimList.innerHTML = ''; dims.forEach(function(d) { dimList.appendChild(new Option(d, d)); }); }
+          if (locList) { locList.innerHTML = ''; locs.forEach(function(l) { locList.appendChild(new Option(l, l)); }); }
+      }
+  }
+  
+  function updateProductDatalist(products) { var datalist = document.getElementById('productList'); if(!datalist) return; datalist.innerHTML = ''; products.forEach(function(prod) { datalist.appendChild(new Option(prod, prod)); }); }
+  function populateOpenTransList(data) { openTransactionsData = data; var datalist = document.getElementById('openTransList'); if(!datalist) return; datalist.innerHTML = ''; data.forEach(function(item) { var text = item.transId + ' - ' + item.toolName + ' (' + item.borrower + ')'; datalist.appendChild(new Option(text, text)); }); }
+
+  // ==========================================
+  // ⚡ โซนที่ 9: Onload Initialization (จุดสตาร์ทระบบ)
+  // ==========================================
+  document.addEventListener('DOMContentLoaded', function() {
+    try {
+        initWaveLabels(); 
+        initWaveInputs(); 
+        updateWizardUI();
+        setupTfAutocomplete(); 
+        
+        google.script.run.withSuccessHandler(updateCategoryDropdown).getCategories();
+        google.script.run.withSuccessHandler(updateProductDatalist).getProductNames();
+        google.script.run.withSuccessHandler(function(id) { var el = document.getElementById('latestAssetId'); if(el) el.innerText = id; }).getLatestAssetId();
+        google.script.run.withSuccessHandler(populateAssetLists).getAssetListForDropdown();
+        google.script.run.withSuccessHandler(populateOpenTransList).getOpenTransactions();
+        google.script.run.withSuccessHandler(populateDynamicDropdowns).getDynamicDropdowns();
+
+        if(typeof flatpickr !== 'undefined') {
+            flatpickr(".date-picker", { locale: "th", dateFormat: "Y-m-d", disableMobile: "true", onChange: function(selectedDates, dateStr, instance) { instance.element.classList.add('has-value'); toggleInputClearBtn(instance.element); }});
+        }
+        document.querySelectorAll('input, select, textarea').forEach(function(el) { el.addEventListener('input', function() { el.classList.remove('input-error'); }); });
+        
+        var mtAssetInput = document.getElementById('mtAssetId');
+        if(mtAssetInput) mtAssetInput.addEventListener('change', function() { fetchAssetPMInfo(this.value); fetchAssetPreview(this.value, 'mt'); });
+
+        var tfAssetInput = document.getElementById('tfAssetId');
+        if(tfAssetInput) tfAssetInput.addEventListener('change', function() { fetchAssetPreview(this.value, 'tf'); });
+        
+        var brAssetInput = document.getElementById('brAssetId');
+        if(brAssetInput) {
+            brAssetInput.addEventListener('input', function() { renderBrDropdown(this.value); });
+            brAssetInput.addEventListener('click', function() { renderBrDropdown(this.value); });
+            brAssetInput.addEventListener('change', function() { fetchAssetPreview(this.value, 'br'); });
+        }
+
+        var mtAssetInput2 = document.getElementById('mtAssetId');
+        if(mtAssetInput2) {
+            mtAssetInput2.addEventListener('input', function() { renderMtDropdown(this.value); });
+            mtAssetInput2.addEventListener('click', function() { renderMtDropdown(this.value); });
+        }
+
+        var rtAssetInput = document.getElementById('rtTransId');
+        if(rtAssetInput) {
+            rtAssetInput.addEventListener('input', function() { renderRtDropdown(this.value); });
+            rtAssetInput.addEventListener('click', function() { renderRtDropdown(this.value); });
+        }
+
+        document.addEventListener('click', function(e) {
+          if (!e.target.closest('.mt-input-container')) { var mtDrop = document.getElementById('mtCustomDropdown'); if(mtDrop) mtDrop.classList.add('hidden'); }
+          if (!e.target.closest('.br-input-container')) { var brDrop = document.getElementById('brCustomDropdown'); if(brDrop) brDrop.classList.add('hidden'); }
+          if (!e.target.closest('.rt-input-container')) { var rtDrop = document.getElementById('rtCustomDropdown'); if(rtDrop) rtDrop.classList.add('hidden'); } 
+        });
+
+        setTimeout(checkScrollIndicator, 800); 
+    } catch(err) {
+        console.error("J.A.R.V.I.S. Init Error:", err);
+        alert("ตรวจพบข้อผิดพลาดตอนเริ่มต้นระบบ: " + err.message);
+    }
+  });
+
+  // ==========================================
+  // 🧠 โซนที่ 10: Smart PM Widget Logic
+  // ==========================================
+  function fetchAssetPMInfo(assetStr) {
+    if(!assetStr) return; var realId = assetStr.split(' - ')[0].trim();
+    var badge = document.getElementById('pmStatusBadge');
+    if(badge) { badge.innerText = "กำลังคำนวณ..."; badge.className = "whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold tracking-wider bg-blue-100 text-brandBlue shadow-sm animate-pulse inline-block"; }
+    google.script.run.withSuccessHandler(updatePMWidget).getAssetPMInfo(realId);
+  }
+
+  function formatToDDMMYYYY(dateObj) {
+    if (!(dateObj instanceof Date) || isNaN(dateObj)) return "-";
+    var day = ("0" + dateObj.getDate()).slice(-2);
+    var month = ("0" + (dateObj.getMonth() + 1)).slice(-2);
+    var year = dateObj.getFullYear();
+    return day + "/" + month + "/" + year;
+  }
+
+  function updatePMWidget(data) {
+    var badge = document.getElementById('pmStatusBadge'); 
+    var intervalDisp = document.getElementById('pmIntervalDisplay'); 
+    var lastDisp = document.getElementById('pmLastDateDisplay'); 
+    var nextInput = document.getElementById('mtNextDate');
+    
+    if(!badge || !intervalDisp || !lastDisp || !nextInput) return;
+
+    if(data.status === 'OK') { 
+      badge.innerText = "🟢 ถึงรอบ / มีประวัติ"; 
+      badge.className = "whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-wider bg-green-100 text-green-700 shadow-sm inline-block"; 
+    } else if(data.status === 'NEW') { 
+      badge.innerText = "🟡 สินทรัพย์ใหม่"; 
+      badge.className = "whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-wider bg-yellow-100 text-yellow-700 shadow-sm inline-block"; 
+    } else { 
+      badge.innerText = "⚪ ไม่พบข้อมูล"; 
+      badge.className = "whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-wider bg-gray-200 text-gray-600 shadow-sm inline-block"; 
+    }
+    
+    var pmIntervalDays = 0;
+    if (data.interval) {
+      var match = String(data.interval).match(/\d+/); 
+      if (match) pmIntervalDays = parseInt(match[0]);
+    }
+    intervalDisp.innerText = pmIntervalDays > 0 ? (pmIntervalDays + " วัน") : "ไม่ระบุ"; 
+    
+    var baseDateObj = null;
+    if(data.lastPM && data.lastPM !== "-" && data.lastPM !== "") {
+      var parsedDate = new Date(data.lastPM);
+      if(isNaN(parsedDate.getTime())) {
+        var parts = String(data.lastPM).split('/');
+        if(parts.length === 3) parsedDate = new Date(parts[2] + "/" + parts[1] + "/" + parts[0]);
+      }
+      if(!isNaN(parsedDate.getTime())) {
+        baseDateObj = parsedDate; lastDisp.innerText = formatToDDMMYYYY(baseDateObj);
+      } else { lastDisp.innerText = String(data.lastPM); baseDateObj = new Date(); }
+    } else { lastDisp.innerText = "ไม่มีประวัติ (เริ่มนับวันนี้)"; baseDateObj = new Date(); }
+
+    if (baseDateObj && pmIntervalDays > 0) {
+      var nextDateObj = new Date(baseDateObj.getTime()); 
+      nextDateObj.setDate(nextDateObj.getDate() + pmIntervalDays); 
+      nextInput.value = formatToDDMMYYYY(nextDateObj); 
+    } else if (data.nextPM) { nextInput.value = data.nextPM; } 
+    else { nextInput.value = "ไม่ระบุ"; }
+  }
+
+  // ==========================================
+  // 🖼️ โซนที่ 11: UNIVERSAL Preview Engine
+  // ==========================================
+  function getFastThumbnailUrl(originalUrl) {
+    if (!originalUrl) return "";
+    var match = originalUrl.match(/id=([^&]+)/) || originalUrl.match(/file\/d\/([^\/]+)/);
+    if (match && match[1]) { return "https://drive.google.com/thumbnail?id=" + match[1] + "&sz=w400"; }
+    return originalUrl;
+  }
+
+  function fetchAssetPreview(assetStr, prefix) {
+    if (!prefix) prefix = 'tf'; 
+    var container = document.getElementById(prefix + 'PreviewContainer');
+    var placeholder = document.getElementById(prefix + 'PreviewPlaceholder');
+    var text = document.getElementById(prefix + 'PreviewText');
+    var img = document.getElementById(prefix + 'PreviewImg');
+
+    if(!container || !placeholder || !text || !img) return;
+
+    if(!assetStr) {
+      container.className = "mt-3 w-full border border-dashed border-gray-300 bg-gray-50 rounded-xl flex flex-col items-center justify-center overflow-hidden transition-all duration-500 h-20 shadow-sm";
+      placeholder.classList.remove('hidden'); img.classList.add('hidden'); text.innerText = "รอโหลดรูปภาพ...";
+      return;
+    }
+
+    var realId = assetStr.split(' - ')[0].trim();
+    var matchedAsset = assetMasterList.find(function(a) { return a.id === realId; });
+
+    if (matchedAsset && matchedAsset.imgUrl && !matchedAsset.imgUrl.startsWith("Error") && matchedAsset.imgUrl !== "ไม่ได้แนบไฟล์") {
+      container.className = "mt-3 w-full border border-dashed border-blue-300 bg-blue-50/50 rounded-xl flex flex-col items-center justify-center overflow-hidden transition-all duration-500 h-20 shadow-sm";
+      placeholder.classList.remove('hidden'); img.classList.add('hidden'); text.innerText = "กำลังจัดเตรียมรูปภาพ..."; text.className = "text-xs font-bold text-brandBlue tracking-wide";
+      
+      var fastImgUrl = getFastThumbnailUrl(matchedAsset.imgUrl);
+      var fallbackTimer = setTimeout(function() {
+        if(img.classList.contains('hidden')) { text.innerText = "รูปภาพมีขนาดใหญ่ หรือ สิทธิ์โฟลเดอร์ถูกปิดกั้น"; text.className = "text-[10px] font-medium text-orange-500 tracking-wide text-center px-2"; placeholder.classList.remove('animate-pulse'); }
+      }, 5000);
+
+      img.src = fastImgUrl;
+      img.onload = function() { clearTimeout(fallbackTimer); placeholder.classList.add('hidden'); img.classList.remove('hidden'); container.className = "mt-3 w-full border-2 border-gray-100 bg-white rounded-xl flex flex-col items-center justify-center overflow-hidden transition-all duration-500 h-48 shadow-md"; };
+      img.onerror = function() { clearTimeout(fallbackTimer); text.innerText = "ไม่สามารถแสดงรูปภาพได้ (เช็คสิทธิ์โฟลเดอร์ Drive)"; text.className = "text-[10px] font-bold text-red-400 tracking-wide text-center px-2"; placeholder.classList.remove('animate-pulse'); };
+    } else {
+      container.className = "mt-3 w-full border border-dashed border-gray-300 bg-gray-50 rounded-xl flex flex-col items-center justify-center overflow-hidden transition-all duration-500 h-20 shadow-sm";
+      placeholder.classList.remove('hidden'); img.classList.add('hidden'); text.innerText = matchedAsset ? "สินทรัพย์นี้ไม่มีรูปภาพ" : "ไม่พบรหัสสินทรัพย์"; text.className = "text-xs font-medium text-gray-400 tracking-wide";
+    }
+  }
+
+  // ==========================================
+  // 🔍 โซนที่ 12: Smart Searchable Dropdown & Voice Search
+  // ==========================================
+  // --- TF ---
+  function startVoiceSearch() {
+    var inputField = document.getElementById('tfAssetId');
+    var micBtn = document.getElementById('tfMicBtn');
+    
+    if(micBtn) { micBtn.classList.add('scale-95', 'bg-blue-100'); setTimeout(function() { micBtn.classList.remove('scale-95', 'bg-blue-100'); }, 150); }
+
+    if(inputField) {
+        inputField.value = ''; inputField.classList.remove('has-value');
+        
+        var blinkClass = 'ring-4 ring-brandBlue bg-blue-50/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]';
+        inputField.className = inputField.className.replace('input-error', '') + ' ' + blinkClass + ' transition-all duration-150';
+        setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]'); 
+            setTimeout(function() { inputField.classList.add('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                    setTimeout(function() { inputField.classList.add('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                        setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]'); }, 400);
+                    }, 100);
+                }, 100);
+            }, 100);
+        }, 150);
+
+        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        inputField.focus();
+
+        var previewCont = document.getElementById('tfPreviewContainer');
+        var topOffset = window.innerHeight / 2; 
+        if(previewCont) { var rect = previewCont.getBoundingClientRect(); topOffset = rect.top + (rect.height / 2); }
+
+        var oldHint = document.getElementById('jarvisHoloHint'); if(oldHint) oldHint.remove();
+        var hint = document.createElement('div');
+        hint.id = 'jarvisHoloHint';
+        hint.className = 'jarvis-floating-hint';
+        hint.style.top = topOffset + 'px'; 
+        hint.innerHTML = '<span class="animate-jarvis-hand text-xl">👇</span> <span>กดปุ่มไมค์ที่แป้นพิมพ์ด้านล่างได้เลยครับ</span>';
+        document.body.appendChild(hint);
+
+        setTimeout(function() {
+            var currentHint = document.getElementById('jarvisHoloHint');
+            if(currentHint) { currentHint.classList.add('fade-out'); setTimeout(function() { if(currentHint) currentHint.remove(); }, 400); }
+        }, 4500);
+    }
+  }
+
+  function setupTfAutocomplete() {
+    var input = document.getElementById('tfAssetId');
+    var dropdown = document.getElementById('tfCustomDropdown');
+    if (!input || !dropdown) return;
+    input.addEventListener('input', function() {
+      var clearBtn = document.getElementById('tfClearBtn');
+      var dropBtn = document.getElementById('tfDropdownToggleBtn');
+      if(this.value.trim().length > 0) { 
+        if(clearBtn) clearBtn.classList.remove('hidden'); 
+        if(dropBtn) dropBtn.classList.add('hidden'); 
+      } else { 
+        if(clearBtn) clearBtn.classList.add('hidden'); 
+        if(dropBtn) dropBtn.classList.remove('hidden'); 
+      }
+      renderTfDropdown(this.value);
+    });
+    document.addEventListener('click', function(e) {
+      if(!input.contains(e.target) && !dropdown.contains(e.target) && !e.target.closest('button[onclick="toggleTfDropdown()"]')) {
+        dropdown.classList.add('hidden');
+      }
+    });
+  }
+
+  function renderTfDropdown(filterText) {
+    if(typeof filterText !== 'string') filterText = '';
+    var dropdown = document.getElementById('tfCustomDropdown');
+    if(!dropdown) return;
+    dropdown.innerHTML = '';
+    
+    var searchTerms = filterText.toLowerCase().trim().split(/\s+/);
+    var filtered = assetMasterList.filter(function(a) {
+      var assetStatus = a.status || a.currentStatus || "";
+      if (assetStatus.indexOf("โอนย้ายออกแล้ว") !== -1) return false; 
+      var fullString = (a.id + ' ' + a.name + ' ' + a.category + ' ' + (a.model || '') + ' ' + (a.serialNumber || '')).toLowerCase();
+      return searchTerms.every(function(term) { return fullString.indexOf(term) !== -1; });
+    });
+
+    if(filtered.length === 0) {
+      dropdown.innerHTML = '<li class="p-4 text-sm font-medium text-gray-500 text-center">❌ ไม่พบข้อมูลสินทรัพย์ <br><span class="text-xs text-gray-400">(หรือถูกโอนย้ายออกไปแล้ว)</span></li>';
+    } else {
+      filtered.forEach(function(item) {
+        var li = document.createElement('li');
+        li.className = 'p-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0 group';
+        var displayColor = item.color ? (' | สี' + item.color) : "";
+        var displayModel = item.model ? ('รุ่น ' + item.model) : "-";
+        var displayDim = item.dimensions ? (' | ขนาด ' + item.dimensions) : "";
+        var displaySerial = item.serialNumber ? (' | ' + item.serialNumber) : "";
+        
+        li.innerHTML = `
+          <div class="flex flex-col gap-1 w-full">
+            <div class="flex justify-between items-start w-full">
+              <span class="font-bold text-sm text-brandBlue group-hover:text-blue-700 transition-colors">${item.id}</span>
+              <span class="text-[10px] font-bold bg-blue-50 text-brandBlue px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">${item.location || 'ไม่ระบุจุด'}</span>
+            </div>
+            <span class="text-sm font-semibold text-gray-800 leading-tight">${item.name}${displayColor}</span>
+            <span class="text-xs text-gray-500 truncate">${displayModel}${displayDim}${displaySerial}</span>
+            <div class="mt-0.5"><span class="text-[10px] font-medium bg-blue-100/50 text-brandBlue px-2 py-0.5 rounded-full inline-block">${item.category}</span></div>
+          </div>
+        `;
+        
+        li.onclick = function() {
+          var inputField = document.getElementById('tfAssetId');
+          if(inputField) {
+              inputField.value = item.id + ' - ' + item.name + ' (' + item.category + ')';
+              inputField.classList.add('has-value');
+              inputField.style.height = ''; 
+              inputField.style.height = inputField.scrollHeight + 'px';
+          }
+          var clearBtn = document.getElementById('tfClearBtn'); if(clearBtn) clearBtn.classList.remove('hidden');
+          var dropBtn = document.getElementById('tfDropdownToggleBtn'); if(dropBtn) dropBtn.classList.add('hidden');
+          dropdown.classList.add('hidden'); 
+          fetchAssetPreview(item.id, 'tf'); 
+        };
+        dropdown.appendChild(li);
+      });
+    }
+    dropdown.classList.remove('hidden');
+  }
+
+  function toggleTfDropdown() {
+    var dropdown = document.getElementById('tfCustomDropdown');
+    var inputField = document.getElementById('tfAssetId');
+    if (!dropdown || !inputField) return;
+    if (dropdown.classList.contains('hidden')) { renderTfDropdown(inputField.value); } 
+    else { dropdown.classList.add('hidden'); }
+    inputField.focus();
+  }
+
+  function clearTfAsset() {
+    var input = document.getElementById('tfAssetId');
+    if(input) { input.value = ''; input.classList.remove('has-value'); input.style.height = '48px'; }
+    var clearBtn = document.getElementById('tfClearBtn'); if(clearBtn) clearBtn.classList.add('hidden');
+    var dropBtn = document.getElementById('tfDropdownToggleBtn'); if(dropBtn) dropBtn.classList.remove('hidden');
+    var dropdown = document.getElementById('tfCustomDropdown'); if(dropdown) dropdown.classList.add('hidden');
+    fetchAssetPreview('', 'tf'); if(input) input.focus();
+  }
+
+  // --- MT ---
+  function clearMtAsset() {
+    var inputField = document.getElementById('mtAssetId');
+    if(inputField) {
+      inputField.value = ''; 
+      inputField.classList.remove('has-value'); 
+      inputField.style.height = ''; 
+      inputField.focus(); 
+      
+      document.getElementById('mtClearBtn').classList.add('hidden');
+      document.getElementById('mtDropdownToggleBtn').classList.remove('hidden');
+      
+      var pmBadge = document.getElementById('pmStatusBadge');
+      if(pmBadge) { pmBadge.textContent = 'รอรหัสสินทรัพย์...'; pmBadge.className = 'px-3 py-1 rounded-full text-[10px] font-bold tracking-wider bg-gray-200 text-gray-500 shadow-sm transition-colors duration-300'; }
+      var pmInterval = document.getElementById('pmIntervalDisplay');
+      if(pmInterval) pmInterval.textContent = '-';
+      var pmLastDate = document.getElementById('pmLastDateDisplay');
+      if(pmLastDate) pmLastDate.textContent = '-';
+      var mtNextDate = document.getElementById('mtNextDate');
+      if(mtNextDate) mtNextDate.value = '';
+      fetchAssetPreview('', 'mt');
+    }
+  }
+
+  function startVoiceSearchMt() {
+    var inputField = document.getElementById('mtAssetId');
+    var micBtn = document.getElementById('mtMicBtn');
+    if(micBtn) { micBtn.classList.add('scale-95', 'bg-blue-100'); setTimeout(function() { micBtn.classList.remove('scale-95', 'bg-blue-100'); }, 150); }
+    if(inputField) {
+        clearMtAsset(); 
+        var blinkClass = 'ring-4 ring-brandBlue bg-blue-50/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]';
+        inputField.className = inputField.className.replace('input-error', '') + ' ' + blinkClass + ' transition-all duration-150';
+        setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]'); 
+            setTimeout(function() { inputField.classList.add('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                    setTimeout(function() { inputField.classList.add('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                        setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]'); }, 400);
+                    }, 100);
+                }, 100);
+            }, 100);
+        }, 150);
+        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        inputField.focus();
+
+        var topOffset = window.innerHeight / 2; 
+        var oldHint = document.getElementById('jarvisHoloHintMt'); if(oldHint) oldHint.remove();
+        var hint = document.createElement('div');
+        hint.id = 'jarvisHoloHintMt';
+        hint.className = 'jarvis-floating-hint';
+        hint.style.top = topOffset + 'px'; 
+        hint.innerHTML = '<span class="animate-jarvis-hand text-xl">👇</span> <span>กดปุ่มไมค์ที่แป้นพิมพ์ด้านล่างได้เลยครับ</span>';
+        document.body.appendChild(hint);
+        setTimeout(function() { var currentHint = document.getElementById('jarvisHoloHintMt'); if(currentHint) { currentHint.classList.add('fade-out'); setTimeout(function() { if(currentHint) currentHint.remove(); }, 400); } }, 4500);
+    } 
+  }
+
+  function renderMtDropdown(filterText) {
+    if(typeof filterText !== 'string') filterText = '';
+    var dropdown = document.getElementById('mtCustomDropdown');
+    if(!dropdown) return;
+    dropdown.innerHTML = '';
+    
+    var searchTerms = filterText.toLowerCase().trim().split(/\s+/);
+    var filtered = assetMasterList.filter(function(a) {
+      var assetStatus = String(a.status || a.currentStatus || a.Status || "").toLowerCase();
+      var isStatusUnavailable = assetStatus.indexOf("ยืม") !== -1 || assetStatus.indexOf("โอนย้าย") !== -1 || assetStatus.indexOf("จำหน่าย") !== -1;
+      var isAlreadyBorrowed = openTransactionsData.some(function(trans) { return trans.toolName.indexOf(a.id) !== -1; });
+      if (isStatusUnavailable || isAlreadyBorrowed) return false; 
+
+      var fullString = (a.id + ' ' + a.name + ' ' + a.category + ' ' + (a.model || '') + ' ' + (a.serialNumber || '')).toLowerCase();
+      return searchTerms.every(function(term) { return fullString.indexOf(term) !== -1; });
+    });
+
+    if(filtered.length === 0) {
+      dropdown.innerHTML = '<li class="p-4 text-sm font-medium text-gray-500 text-center">❌ ไม่พบข้อมูลสินทรัพย์ <br><span class="text-xs text-gray-400">(หรือถูกยืม/โอนย้าย/จำหน่ายไปแล้ว)</span></li>';
+    } else {
+      filtered.forEach(function(item) {
+        var li = document.createElement('li');
+        li.className = 'p-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0 group';
+        var displayColor = item.color ? (' | สี' + item.color) : "";
+        var displayModel = item.model ? ('รุ่น ' + item.model) : "-";
+        var displayDim = item.dimensions ? (' | ขนาด ' + item.dimensions) : "";
+        var displaySerial = item.serialNumber ? (' | ' + item.serialNumber) : "";
+        
+        li.innerHTML = `
+          <div class="flex flex-col gap-1 w-full">
+            <div class="flex justify-between items-start w-full">
+              <span class="font-bold text-sm text-brandBlue group-hover:text-blue-700 transition-colors">${item.id}</span>
+              <span class="text-[10px] font-bold bg-blue-50 text-brandBlue px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">${item.location || 'ไม่ระบุจุด'}</span>
+            </div>
+            <span class="text-sm font-semibold text-gray-800 leading-tight">${item.name}${displayColor}</span>
+            <span class="text-xs text-gray-500 truncate">${displayModel}${displayDim}${displaySerial}</span>
+            <div class="mt-0.5"><span class="text-[10px] font-medium bg-blue-100/50 text-brandBlue px-2 py-0.5 rounded-full inline-block">${item.category}</span></div>
+          </div>
+        `;
+        
+        li.onclick = function() {
+          var inputField = document.getElementById('mtAssetId');
+          if(inputField) {
+              inputField.value = item.id + ' - ' + item.name + ' (' + item.category + ')';
+              inputField.classList.add('has-value');
+              inputField.style.height = ''; 
+              inputField.style.height = inputField.scrollHeight + 'px';
+          }
+          var clearBtn = document.getElementById('mtClearBtn'); if(clearBtn) clearBtn.classList.remove('hidden');
+          var dropBtn = document.getElementById('mtDropdownToggleBtn'); if(dropBtn) dropBtn.classList.add('hidden');
+          dropdown.classList.add('hidden'); 
+          fetchAssetPreview(item.id, 'mt'); 
+          fetchAssetPMInfo(item.id); 
+        };
+        dropdown.appendChild(li);
+      });
+    }
+    dropdown.classList.remove('hidden');
+  }
+
+  function toggleMtDropdown() {
+    var dropdown = document.getElementById('mtCustomDropdown');
+    var inputField = document.getElementById('mtAssetId');
+    if (dropdown) {
+      if (dropdown.classList.contains('hidden')) { renderMtDropdown(inputField ? inputField.value : ''); if(inputField) inputField.focus(); } 
+      else { dropdown.classList.add('hidden'); }
+    }
+  }
+
+  // --- BR ---
+  function clearBrAsset() {
+    var inputField = document.getElementById('brAssetId');
+    if(inputField) {
+      inputField.value = ''; 
+      inputField.classList.remove('has-value'); 
+      inputField.style.height = ''; 
+      inputField.focus(); 
+      var clearBtn = document.getElementById('brClearBtn'); if(clearBtn) clearBtn.classList.add('hidden');
+      var dropBtn = document.getElementById('brDropdownToggleBtn'); if(dropBtn) dropBtn.classList.remove('hidden');
+      fetchAssetPreview('', 'br');
+    }
+  }
+
+  function startVoiceSearchBr() {
+    var inputField = document.getElementById('brAssetId');
+    var micBtn = document.getElementById('brMicBtn');
+    if(micBtn) { micBtn.classList.add('scale-95', 'bg-blue-100'); setTimeout(function() { micBtn.classList.remove('scale-95', 'bg-blue-100'); }, 150); }
+    if(inputField) {
+        clearBrAsset(); 
+        var blinkClass = 'ring-4 ring-brandBlue bg-blue-50/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]';
+        inputField.className = inputField.className.replace('input-error', '') + ' ' + blinkClass + ' transition-all duration-150';
+        setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]'); 
+            setTimeout(function() { inputField.classList.add('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                    setTimeout(function() { inputField.classList.add('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]');
+                        setTimeout(function() { inputField.classList.remove('ring-4', 'ring-brandBlue', 'bg-blue-50/50', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]'); }, 400);
+                    }, 100);
+                }, 100);
+            }, 100);
+        }, 150);
+        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        inputField.focus();
+
+        var topOffset = window.innerHeight / 2; 
+        var oldHint = document.getElementById('jarvisHoloHintBr'); if(oldHint) oldHint.remove();
+        var hint = document.createElement('div');
+        hint.id = 'jarvisHoloHintBr';
+        hint.className = 'jarvis-floating-hint';
+        hint.style.top = topOffset + 'px'; 
+        hint.innerHTML = '<span class="animate-jarvis-hand text-xl">👇</span> <span>กดปุ่มไมค์ที่แป้นพิมพ์ด้านล่างได้เลยครับ</span>';
+        document.body.appendChild(hint);
+        setTimeout(function() { var currentHint = document.getElementById('jarvisHoloHintBr'); if(currentHint) { currentHint.classList.add('fade-out'); setTimeout(function() { if(currentHint) currentHint.remove(); }, 400); } }, 4500);
+    }
+  }
+
+  function renderBrDropdown(filterText) {
+    if(typeof filterText !== 'string') filterText = '';
+    var dropdown = document.getElementById('brCustomDropdown');
+    if(!dropdown) return;
+    dropdown.innerHTML = '';
+    
+    var searchTerms = filterText.toLowerCase().trim().split(/\s+/);
+    
+    var filtered = assetMasterList.filter(function(a) {
+      var assetStatus = String(a.status || a.currentStatus || a.Status || "").toLowerCase();
+      var isStatusUnavailable = assetStatus.indexOf("ยืม") !== -1 || assetStatus.indexOf("โอนย้าย") !== -1 || assetStatus.indexOf("จำหน่าย") !== -1;
+      var isAlreadyBorrowed = openTransactionsData.some(function(trans) { return trans.toolName.indexOf(a.id) !== -1; });
+      if (isStatusUnavailable || isAlreadyBorrowed) return false; 
+
+      var fullString = (a.id + ' ' + a.name + ' ' + a.category + ' ' + (a.model || '') + ' ' + (a.serialNumber || '')).toLowerCase();
+      return searchTerms.every(function(term) { return fullString.indexOf(term) !== -1; });
+    });
+
+    if(filtered.length === 0) {
+      dropdown.innerHTML = '<li class="p-4 text-sm font-medium text-gray-500 text-center">❌ ไม่พบข้อมูลสินทรัพย์ <br><span class="text-xs text-gray-400">(หรือถูกยืม/จำหน่ายไปแล้ว)</span></li>';
+    } else {
+      filtered.forEach(function(item) {
+        var li = document.createElement('li');
+        li.className = 'p-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0 group';
+        var displayColor = item.color ? (' | สี' + item.color) : "";
+        var displayModel = item.model ? ('รุ่น ' + item.model) : "-";
+        var displayDim = item.dimensions ? (' | ขนาด ' + item.dimensions) : "";
+        var displaySerial = item.serialNumber ? (' | ' + item.serialNumber) : "";
+        
+        li.innerHTML = `
+          <div class="flex flex-col gap-1 w-full">
+            <div class="flex justify-between items-start w-full">
+              <span class="font-bold text-sm text-brandBlue group-hover:text-blue-700 transition-colors">${item.id}</span>
+              <span class="text-[10px] font-bold bg-blue-50 text-brandBlue px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">${item.location || 'ไม่ระบุจุด'}</span>
+            </div>
+            <span class="text-sm font-semibold text-gray-800 leading-tight">${item.name}${displayColor}</span>
+            <span class="text-xs text-gray-500 truncate">${displayModel}${displayDim}${displaySerial}</span>
+            <div class="mt-0.5"><span class="text-[10px] font-medium bg-blue-100/50 text-brandBlue px-2 py-0.5 rounded-full inline-block">${item.category}</span></div>
+          </div>
+        `;
+        
+        li.onclick = function() {
+          var inputField = document.getElementById('brAssetId');
+          if(inputField) {
+              inputField.value = item.id + ' - ' + item.name + ' (' + item.category + ')';
+              inputField.classList.add('has-value');
+              inputField.style.height = ''; 
+              inputField.style.height = inputField.scrollHeight + 'px';
+          }
+          var clearBtn = document.getElementById('brClearBtn'); if(clearBtn) clearBtn.classList.remove('hidden');
+          var dropBtn = document.getElementById('brDropdownToggleBtn'); if(dropBtn) dropBtn.classList.add('hidden');
+          dropdown.classList.add('hidden'); 
+          fetchAssetPreview(item.id, 'br');
+        };
+        dropdown.appendChild(li);
+      });
+    }
+    dropdown.classList.remove('hidden');
+  }
+
+  function toggleBrDropdown() {
+    var dropdown = document.getElementById('brCustomDropdown');
+    var inputField = document.getElementById('brAssetId');
+    if (dropdown) {
+      if (dropdown.classList.contains('hidden')) { renderBrDropdown(inputField ? inputField.value : ''); if(inputField) inputField.focus(); } 
+      else { dropdown.classList.add('hidden'); }
+    }
+  }
+
+  // --- RT ---
+  function clearRtTrans() {
+    var inputField = document.getElementById('rtTransId');
+    if(inputField) {
+      inputField.value = ''; 
+      inputField.classList.remove('has-value'); 
+      inputField.style.height = ''; 
+      inputField.focus(); 
+      var clearBtn = document.getElementById('rtClearBtn'); if(clearBtn) clearBtn.classList.add('hidden');
+      var dropBtn = document.getElementById('rtDropdownToggleBtn'); if(dropBtn) dropBtn.classList.remove('hidden');
+      fetchAssetPreview('', 'rt');
+    }
+  }
+
+  function startVoiceSearchRt() {
+    var inputField = document.getElementById('rtTransId');
+    var micBtn = document.getElementById('rtMicBtn');
+    if(micBtn) { micBtn.classList.add('scale-95', 'bg-orange-100'); setTimeout(function() { micBtn.classList.remove('scale-95', 'bg-orange-100'); }, 150); }
+    if(inputField) {
+        clearRtTrans(); 
+        var blinkClass = 'ring-4 ring-orange-400 bg-orange-50/50 shadow-[0_0_15px_rgba(249,115,22,0.5)]';
+        inputField.className = inputField.className.replace('input-error', '') + ' ' + blinkClass + ' transition-all duration-150';
+        setTimeout(function() { inputField.classList.remove('ring-4', 'ring-orange-400', 'bg-orange-50/50', 'shadow-[0_0_15px_rgba(249,115,22,0.5)]'); 
+            setTimeout(function() { inputField.classList.add('ring-4', 'ring-orange-400', 'bg-orange-50/50', 'shadow-[0_0_15px_rgba(249,115,22,0.5)]');
+                setTimeout(function() { inputField.classList.remove('ring-4', 'ring-orange-400', 'bg-orange-50/50', 'shadow-[0_0_15px_rgba(249,115,22,0.5)]');
+                    setTimeout(function() { inputField.classList.add('ring-4', 'ring-orange-400', 'bg-orange-50/50', 'shadow-[0_0_15px_rgba(249,115,22,0.5)]');
+                        setTimeout(function() { inputField.classList.remove('ring-4', 'ring-orange-400', 'bg-orange-50/50', 'shadow-[0_0_15px_rgba(249,115,22,0.5)]'); }, 400);
+                    }, 100);
+                }, 100);
+            }, 100);
+        }, 150);
+        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        inputField.focus();
+
+        var topOffset = window.innerHeight / 2; 
+        var oldHint = document.getElementById('jarvisHoloHintRt'); if(oldHint) oldHint.remove();
+        var hint = document.createElement('div');
+        hint.id = 'jarvisHoloHintRt';
+        hint.className = 'jarvis-floating-hint';
+        hint.style.top = topOffset + 'px'; 
+        hint.innerHTML = '<span class="animate-jarvis-hand text-xl">👇</span> <span>กดปุ่มไมค์ที่แป้นพิมพ์ด้านล่างได้เลยครับ</span>';
+        document.body.appendChild(hint);
+        setTimeout(function() { var currentHint = document.getElementById('jarvisHoloHintRt'); if(currentHint) { currentHint.classList.add('fade-out'); setTimeout(function() { if(currentHint) currentHint.remove(); }, 400); } }, 4500);
+    }
+  }
+
+  function renderRtDropdown(filterText) {
+    if(typeof filterText !== 'string') filterText = '';
+    var dropdown = document.getElementById('rtCustomDropdown');
+    if(!dropdown) return;
+    dropdown.innerHTML = '';
+    
+    var searchTerms = filterText.toLowerCase().trim().split(/\s+/);
+    var filtered = openTransactionsData.filter(function(item) {
+      var fullString = (item.transId + ' ' + item.toolName + ' ' + item.borrower).toLowerCase();
+      return searchTerms.every(function(term) { return fullString.indexOf(term) !== -1; });
+    });
+
+    if(filtered.length === 0) {
+      dropdown.innerHTML = '<li class="p-4 text-sm font-medium text-gray-500 text-center">❌ ไม่พบรายการค้างรับคืน <br><span class="text-xs text-gray-400">(หรือพิมพ์ข้อมูลผิดพลาด)</span></li>';
+    } else {
+      filtered.forEach(function(item) {
+        var li = document.createElement('li');
+        li.className = 'p-3 hover:bg-orange-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0 group';
+        
+        li.innerHTML = `
+          <div class="flex flex-col gap-1 w-full">
+            <div class="flex justify-between items-start w-full">
+              <span class="font-bold text-sm text-brandBlue group-hover:text-blue-700 transition-colors">${item.transId}</span>
+              <span class="text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full border border-orange-200 shadow-sm">${item.borrower}</span>
+            </div>
+            <span class="text-sm font-semibold text-gray-800 leading-tight">${item.toolName}</span>
+          </div>
+        `;
+        
+        li.onclick = function() {
+          var inputField = document.getElementById('rtTransId');
+          if(inputField) {
+              inputField.value = item.transId + ' - ' + item.toolName + ' (' + item.borrower + ')';
+              inputField.classList.add('has-value');
+              inputField.style.height = ''; 
+              inputField.style.height = inputField.scrollHeight + 'px';
+          }
+          var clearBtn = document.getElementById('rtClearBtn'); if(clearBtn) clearBtn.classList.remove('hidden');
+          var dropBtn = document.getElementById('rtDropdownToggleBtn'); if(dropBtn) dropBtn.classList.add('hidden');
+          dropdown.classList.add('hidden'); 
+          
+          var assetIdExtracted = item.toolName.split(' - ')[0];
+          fetchAssetPreview(assetIdExtracted, 'rt');
+        };
+        dropdown.appendChild(li);
+      });
+    }
+    dropdown.classList.remove('hidden');
+  }
+
+  function toggleRtDropdown() {
+    var dropdown = document.getElementById('rtCustomDropdown');
+    var inputField = document.getElementById('rtTransId');
+    if (dropdown) {
+      if (dropdown.classList.contains('hidden')) { renderRtDropdown(inputField ? inputField.value : ''); if(inputField) inputField.focus(); } 
+      else { dropdown.classList.add('hidden'); }
+    }
+  }
+
+  // ==========================================
+  // 📦 โซนที่ 13: ระบบ Form Submissions 
+  // ==========================================
+  function changeStep(dir) { if (dir === 1 && !validateCurrentStep('step-')) return; currentStep += dir; updateWizardUI(); setTimeout(checkScrollIndicator, 100); }
+  
+  function validateCurrentStep(prefixStr) { var stepDiv = document.getElementById(prefixStr + currentStep) || document.getElementById(prefixStr); if(!stepDiv) return false; var requiredInputs = stepDiv.querySelectorAll('[required]'); var isValid = true; requiredInputs.forEach(function(input) { if (!input.value) { isValid = false; input.classList.add('input-error'); } else { input.classList.remove('input-error'); } }); if (!isValid) { speakAI('กรุณากรอกข้อมูลให้ครบถ้วนด้วยค่ะ', true); Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ', text:'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน', customClass:{popup:'rounded-2xl'}}); } return isValid; }
+  
+  function validateForm(formId) { var form = document.getElementById(formId); if(!form) return false; var requiredInputs = form.querySelectorAll('[required]'); var isValid = true; requiredInputs.forEach(function(input) { if (!input.value) { isValid = false; input.classList.add('input-error'); } else { input.classList.remove('input-error'); } }); if (!isValid) { speakAI('กรุณากรอกข้อมูลให้ครบถ้วนด้วยค่ะ', true); Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ', text:'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน', customClass:{popup:'rounded-2xl'}}); } return isValid; }
+
+  function updateWizardUI() {
+    for (var i = 1; i <= totalSteps; i++) { var stepEl = document.getElementById('step-' + i); if(stepEl) stepEl.classList.add('hidden'); } 
+    var currStepEl = document.getElementById('step-' + currentStep); if(currStepEl) currStepEl.classList.remove('hidden');
+    for (var i = 1; i <= totalSteps; i++) {
+      var ind = document.getElementById('ind-' + i); var text = document.getElementById('ind-text-' + i); var arr = document.getElementById('arr-' + i);
+      if(arr) { if (i === currentStep) { arr.classList.add('active-arrow'); arr.classList.remove('text-gray-300', 'text-brandBlue'); } else if (i < currentStep) { arr.classList.remove('active-arrow', 'text-gray-300'); arr.classList.add('text-brandBlue'); } else { arr.classList.remove('active-arrow', 'text-brandBlue'); arr.classList.add('text-gray-300'); } }
+      if(ind) {
+          if (i < currentStep) { ind.className = 'w-11 h-11 bg-green-500 text-white rounded-full flex items-center justify-center shadow-md transition-all'; ind.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>'; if(text) text.className = 'text-xs font-bold text-green-500 mt-2'; } 
+          else if (i === currentStep) { ind.className = 'w-11 h-11 bg-brandBlue text-white rounded-full flex items-center justify-center font-bold shadow-lg transform scale-110 transition-all'; ind.innerHTML = i; if(text) text.className = 'text-xs font-bold text-brandBlue mt-2'; } 
+          else { ind.className = 'w-11 h-11 bg-white border-2 border-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold transition-all'; ind.innerHTML = i; if(text) text.className = 'text-xs font-semibold text-gray-400 mt-2'; }
+      }
+    }
+    var prev = document.getElementById('prevBtn'); var next = document.getElementById('nextBtn'); var sub = document.getElementById('submitBtn');
+    if(prev && next && sub) {
+        if (currentStep === 1) { prev.classList.add('hidden'); prev.classList.remove('w-1/3'); next.classList.replace('w-2/3', 'w-full'); } else { prev.classList.remove('hidden'); prev.classList.add('w-1/3'); next.classList.replace('w-full', 'w-2/3'); }
+        if (currentStep === totalSteps) { next.classList.add('hidden'); sub.classList.remove('hidden'); } else { next.classList.remove('hidden'); sub.classList.add('hidden'); }
+    }
+  }
+
+  function toggleClearButton(inputId) { var btn = document.getElementById('clear_' + inputId); var el = document.getElementById(inputId); if(btn && el) { el.files.length > 0 ? btn.classList.remove('hidden') : btn.classList.add('hidden'); } }
+  function clearFile(inputId) { var el = document.getElementById(inputId); if(el) { el.value = ''; toggleClearButton(inputId); } }
+  function readFileAsBase64(file) { return new Promise(function(resolve, reject) { var reader = new FileReader(); reader.onload = function() { resolve({ base64: reader.result.split(',')[1], mimeType: file.type, name: file.name }); }; reader.onerror = function(error) { reject(error); }; reader.readAsDataURL(file); }); }
+
+  // 🟢 ฟังก์ชันหน้าต่างโหลดดิ้ง (อัปเกรดให้ S.A.M. แยกแยะทิศทางลูกศรได้)
+function showLoadingAlert(msg, mode = 'download') { 
+  // สลับสมการเส้นลูกศรตามโหมดที่สั่งมา (ถ้าไม่สั่ง จะชี้ลงเป็นค่าเริ่มต้น)
+  const arrowPath = (mode === 'upload') 
+    ? "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 13l3-3m0 0l3 3m-3-3v9" // ⬆️ ชี้ขึ้นฟ้า (อัปโหลด)
+    : "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"; // ⬇️ ชี้ลงดิน (ดาวน์โหลด/ค่าเริ่มต้น)
+
+  Swal.fire({ 
+    html: `
+      <div class="flex flex-col items-center justify-center py-6">
+        <div class="relative w-20 h-20 flex items-center justify-center mb-6">
+          <div class="absolute inset-0 rounded-full border-t-4 border-[#04d4d4] animate-spin"></div>
+          <div class="absolute inset-2 rounded-full border-r-4 border-blue-400 animate-spin" style="animation-direction: reverse;"></div>
+          <svg class="w-10 h-10 text-[#04d4d4] relative z-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="${arrowPath}"></path>
+          </svg>
+        </div>
+        <h3 class="text-xl font-black text-[#0000FF] tracking-wide mb-2">${msg}</h3>
+        <p class="text-xs text-[#0000FF] font-bold tracking-widest animate-pulse uppercase">S.A.M. Processing...</p>
+      </div>
+    `, 
+    allowOutsideClick: false, 
+    showConfirmButton: false, 
+    customClass: { popup: 'rounded-[2rem] shadow-2xl border border-gray-100 bg-white/90 backdrop-blur-md' } 
+  }); 
+}
+
+  // ==========================================
+  // 🏷️ โซนที่ 14: J.A.R.V.I.S. Core
+  // ==========================================
+  function getDropdownVal(selectId, newDivId) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return '';
+    if (sel.value === 'อื่นๆ' || sel.value === 'other') {
+        var newDiv = document.getElementById(newDivId);
+        return newDiv ? newDiv.querySelector('textarea, input').value : '';
+    }
+    return sel.value;
+  }
+
+  async function captureTagBase64(formData) {
+    return new Promise(async (resolve) => {
+        var modal = document.getElementById('qrSuccessModal');
+        modal.classList.remove('hidden');
+        window.currentGeneratedAssetId = formData.assetId || "AST-Unknown";
+        var pureQRData = formData.assetId; 
+        
+        var tempQrDiv = document.createElement('div');
+        new QRCode(tempQrDiv, { text: pureQRData, width: 250, height: 250, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.M });
+
+        setTimeout(async () => {
+            var qrCanvas = tempQrDiv.querySelector('canvas');
+            var qrBase64 = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
+
+            try { await document.fonts.load(`bold 24px 'Noto Sans Thai'`); } catch(e) {}
+
+            var tagCanvas = document.getElementById('assetTagCanvasDraw');
+            var ctx = tagCanvas.getContext('2d');
+            const w = tagCanvas.width;   
+            const h = tagCanvas.height;  
+            const navy = "#06245C";
+            const fontName = "'Noto Sans Thai', sans-serif";
+
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = "#D1D5DB"; 
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, w - 2, h - 2);
+
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.roundRect(2, 2, w - 4, h - 4, 30);
+            ctx.fill();
+
+            ctx.fillStyle = navy;
+            ctx.beginPath();
+            ctx.roundRect(12, 12, w - 24, 130, 8);
+            ctx.fill();
+
+            ctx.fillStyle = "#ffffff";
+            ctx.textAlign = "center";
+            ctx.font = `bold 55px ${fontName}`;
+            ctx.fillText("T | H | A", w / 2, 85);
+
+            ctx.font = `bold 24px ${fontName}`;
+            ctx.textAlign = "left";
+            ctx.fillText("Asset Tag No.", 40, 125);
+            ctx.textAlign = "right";
+            ctx.fillText(formData.assetId || "-", w - 40, 125);
+
+            const qrImg = new Image();
+            qrImg.src = qrBase64;
+            qrImg.onload = () => {
+                ctx.drawImage(qrImg, w / 2 - 110, 180, 220, 220); 
+
+                ctx.fillStyle = "#A5A5A5";
+                ctx.textAlign = "center";
+                ctx.font = `400 18px ${fontName}`;
+                ctx.fillText("Property of THA Asset Management", w / 2, 430);
+
+                let formattedInstallDate = formData.installDate || "-";
+                if (formattedInstallDate.indexOf('-') > -1 && formattedInstallDate.length === 10) {
+                    let parts = formattedInstallDate.split('-');
+                    formattedInstallDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+
+                const listItems = [
+                    { label: "Item Name :", value: formData.productName || "-" },
+                    { label: "Model :", value: formData.model || "-" },
+                    { label: "S/N :", value: formData.serialNumber || "-" },
+                    { label: "Location :", value: formData.location || "-" },
+                    { label: "Install date :", value: formattedInstallDate } 
+                ];
+
+                let startY = 510;
+                const rowHeight = 70;
+
+                listItems.forEach((item, index) => {
+                    const y = startY + (index * rowHeight);
+                    ctx.textAlign = "left";
+                    ctx.fillStyle = navy;
+                    ctx.font = `bold 24px ${fontName}`;
+                    ctx.fillText(item.label, 40, y);
+
+                    ctx.textAlign = "right";
+                    ctx.fillStyle = "#1a1a1a";
+                    
+                    let valText = item.value;
+                    let maxTextWidth = 260; 
+                    
+                    ctx.font = `500 24px ${fontName}`;
+                    
+                    if (ctx.measureText(valText).width <= maxTextWidth) {
+                        ctx.fillText(valText, w - 40, y);
+                    } else {
+                        ctx.font = `500 20px ${fontName}`; 
+                        let line1 = "";
+                        let line2 = "";
+                        
+                        for (let i = 0; i < valText.length; i++) {
+                            let testLine = line1 + valText[i];
+                            if (ctx.measureText(testLine).width > maxTextWidth) {
+                                line2 = valText.substring(i);
+                                break;
+                            } else {
+                                line1 = testLine;
+                            }
+                        }
+                        
+                        if (ctx.measureText(line2).width > maxTextWidth) {
+                            let tempLine2 = "";
+                            for (let i = 0; i < line2.length; i++) {
+                                let testLine2 = tempLine2 + line2[i] + "...";
+                                if (ctx.measureText(testLine2).width > maxTextWidth) break;
+                                tempLine2 += line2[i];
+                            }
+                            line2 = tempLine2 + "...";
+                        }
+                        
+                        ctx.fillText(line1, w - 40, y - 12); 
+                        ctx.fillText(line2, w - 40, y + 12); 
+                    }
+
+                    ctx.strokeStyle = "#E8E8E8";
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(40, y + 15);
+                    ctx.lineTo(w - 40, y + 15);
+                    ctx.stroke();
+                });
+
+                var dataUrl = tagCanvas.toDataURL('image/jpeg', 1.0);
+                var base64Only = dataUrl.split(',')[1];
+                resolve(base64Only);
+            };
+            
+            qrImg.onerror = () => { resolve(null); }
+        }, 150); 
+    });
+  }
+
+  async function handleFormSubmit() {
+    if (!validateCurrentStep('step-')) return;
+    var typeEl = document.getElementById('regTypeMode'); 
+    var regMode = typeEl ? typeEl.value : 'new';
+    var confirmMsg = regMode === 'transfer' ? 'ยืนยันการรับโอนย้ายเข้าสาขา?' : 'ยืนยันการขึ้นทะเบียนใหม่?';
+
+    Swal.fire({ 
+        title: confirmMsg, icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#94a3b8', confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก', customClass: { popup: 'rounded-3xl' }, reverseButtons: true 
+    }).then(async function(result) {
+      if (result.isConfirmed) {
+        showLoadingAlert('กำลังสร้างป้ายภาพและบันทึกข้อมูล...', 'upload');
+        var assetIdNumEl = document.getElementById('assetIdNum'); 
+        var fullAssetId = "AST-" + (assetIdNumEl ? assetIdNumEl.value : "UNKNOWN");
+        
+        var formData = { 
+          regMode: regMode, 
+          tfInOrigin: getDropdownVal('tfInOrigin', 'new_tfInOrigin'), 
+          tfInReceiver: getDropdownVal('tfInReceiver', 'new_tfInReceiver'), 
+          tfInCondition: getDropdownVal('tfInCondition', 'new_tfInCondition'),
+          assetId: fullAssetId, 
+          category: document.getElementById('category').value, 
+          productName: document.getElementById('productName') ? document.getElementById('productName').value : '', 
+          model: document.getElementById('model') ? document.getElementById('model').value : '', 
+          color: document.getElementById('color') ? document.getElementById('color').value : '', 
+          dimensions: document.getElementById('dimensions') ? document.getElementById('dimensions').value : '', 
+          serialNumber: document.getElementById('serialNumber') ? document.getElementById('serialNumber').value : '', 
+          location: document.getElementById('location') ? document.getElementById('location').value : '', 
+          orderDate: document.getElementById('orderDate') ? document.getElementById('orderDate').value : '', 
+          purchasePrice: document.getElementById('purchasePrice') ? document.getElementById('purchasePrice').value : '', 
+          vendor: document.getElementById('vendor') ? document.getElementById('vendor').value : '', 
+          receivedDate: document.getElementById('receivedDate') ? document.getElementById('receivedDate').value : '', 
+          installDate: document.getElementById('installDate') ? document.getElementById('installDate').value : '', 
+          currentStatus: getDropdownVal('currentStatus', 'new_currentStatus'), 
+          warrantyProvider: document.getElementById('warrantyProvider') ? document.getElementById('warrantyProvider').value : '', 
+          supportContact: document.getElementById('supportContact') ? document.getElementById('supportContact').value : '', 
+          warrantyStartDate: document.getElementById('warrantyStartDate') ? document.getElementById('warrantyStartDate').value : '', 
+          warrantyMonths: document.getElementById('warrantyMonths') ? document.getElementById('warrantyMonths').value : '', 
+          remarks: document.getElementById('remarks') ? document.getElementById('remarks').value : '', 
+          warrantyPart: getDropdownVal('warrantyPart', 'new_warrantyPart'), 
+          pmInterval: document.getElementById('pmInterval') ? document.getElementById('pmInterval').value : '' 
+        };
+
+        try {
+          var imgEl = document.getElementById('productImage'); 
+          if (imgEl && imgEl.files.length > 0) formData.productImage = await readFileAsBase64(imgEl.files[0]);
+          var docEl = document.getElementById('documentFile'); 
+          if (docEl && docEl.files.length > 0) formData.documentFile = await readFileAsBase64(docEl.files[0]);
+          
+          var capturedBase64 = await captureTagBase64(formData);
+          if (capturedBase64) {
+              formData.assetTagImage = { 
+                  base64: capturedBase64, 
+                  mimeType: 'image/jpeg', 
+                  name: fullAssetId + '_AssetTag.jpg' 
+              };
+          }
+          
+          google.script.run.withSuccessHandler(function(res) {
+            if(res.success) { 
+              var isDamaged = (formData.currentStatus && formData.currentStatus.indexOf('ชำรุด') !== -1) || (formData.tfInCondition && formData.tfInCondition.indexOf('ชำรุด') !== -1);
+              if (isDamaged) { speakAI('แจ้งเตือน! อุปกรณ์ที่รับเข้ามีสภาพชำรุด โปรดตรวจสอบด่วนค่ะ', true); } 
+              else { speakAI(regMode === 'transfer' ? 'บันทึกการรับโอนย้ายเข้าสาขา เรียบร้อยแล้วค่ะ' : 'บันทึกข้อมูลการขึ้นทะเบียน เรียบร้อยแล้วค่ะ'); }
+              
+              Swal.close(); 
+              
+              var modal = document.getElementById('qrSuccessModal');
+              var modalContent = document.getElementById('qrModalContent');
+              modal.classList.remove('hidden');
+              setTimeout(() => { modal.classList.remove('opacity-0'); modalContent.classList.remove('scale-95'); }, 50);
+
+              var wForm = document.getElementById('warrantyForm'); 
+              if(wForm) wForm.reset(); 
+              if(typeof clearSmartDropdown === 'function') clearSmartDropdown('category');
+              
+              currentStep = 1; updateWizardUI(); initWaveInputs(); toggleRegType('new'); 
+              google.script.run.withSuccessHandler(populateAssetLists).getAssetListForDropdown(); 
+            } else { 
+                Swal.fire({ icon: 'error', title: 'ผิดพลาด!', text: res.message }); 
+            }
+          }).withFailureHandler(function(err) { Swal.fire({ icon: 'error', title: 'ล้มเหลว!', text: err.message }); }).saveData(formData); 
+          
+        } catch (err) { Swal.fire({ icon: 'error', title: 'ระบบขัดข้อง', text: err.message }); }
+      }
+    });
+  }
+
+  function closeQRModal() {
+    var modal = document.getElementById('qrSuccessModal');
+    var modalContent = document.getElementById('qrModalContent');
+    modal.classList.add('opacity-0');
+    modalContent.classList.add('scale-95');
+    setTimeout(function() { modal.classList.add('hidden'); }, 300);
+  }
+
+  function downloadAssetTag() {
+    var tagDiv = document.getElementById('assetTagCanvas');
+    var assetIdText = document.getElementById('tagAssetIdText').innerText;
+    
+    html2canvas(tagDiv, { scale: 3, useCORS: true, backgroundColor: "#ffffff" }).then(function(canvas) {
+      var link = document.createElement('a');
+      link.download = 'AssetTag_' + assetIdText + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      var successOverlay = document.getElementById('downloadSuccessOverlay');
+      if(successOverlay) {
+          successOverlay.classList.remove('hidden');
+          setTimeout(() => {
+             closeQRModal();
+             setTimeout(() => location.reload(), 300); 
+          }, 1500);
+      }
+    });
+  }
+
+  async function submitMaintenance() {
+    if (!validateForm('maintenanceForm')) return;
+    var imgFileEl = document.getElementById('mtImage'); var imgFile = imgFileEl ? imgFileEl.files[0] : null; if(!imgFile) { Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: 'กรุณาถ่ายรูปซ่อมปัจจุบันเพื่อแนบเป็นหลักฐาน' }); return; }
+    Swal.fire({ title: 'บันทึกประวัติซ่อมบำรุง?', icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#94a3b8', confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก', customClass: { popup: 'rounded-3xl' }, reverseButtons: true }).then(async function(result) {
+      if (result.isConfirmed) {
+        showLoadingAlert('กำลังบันทึกประวัติซ่อม...', 'upload'); var mtAssetEl = document.getElementById('mtAssetId'); var assetStr = mtAssetEl ? mtAssetEl.value : "";
+        var formData = { 
+            date: document.getElementById('mtDate') ? document.getElementById('mtDate').value : '', assetId: assetStr.split(' - ')[0], 
+            type: (document.getElementById('mtType') && document.getElementById('mtType').value === 'other') ? document.getElementById('newMtType').value : document.getElementById('mtType').value, 
+            details: document.getElementById('mtDetails') ? document.getElementById('mtDetails').value : '', cost: document.getElementById('mtCost') ? document.getElementById('mtCost').value : '', nextPmDate: document.getElementById('mtNextDate') ? document.getElementById('mtNextDate').value : '', mtTechnicianSelect: document.getElementById('mtTechnicianSelect') ? document.getElementById('mtTechnicianSelect').value : '', newMtTechnician: document.getElementById('newMtTechnician') ? document.getElementById('newMtTechnician').value : '' 
+        };
+        try {
+          formData.mtImage = await readFileAsBase64(imgFile);
+          google.script.run.withSuccessHandler(function(res) {
+            if(res.success) { speakAI('บันทึกข้อมูลการซ่อมบำรุง เรียบร้อยแล้วค่ะ'); Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, customClass: { popup: 'rounded-3xl' } }).then(function() { var mForm = document.getElementById('maintenanceForm'); if(mForm) mForm.reset(); clearFile('mtImage'); var ntDiv = document.getElementById('newMtTypeDiv'); if(ntDiv) ntDiv.classList.add('hidden'); var nmDiv = document.getElementById('newMtTechnicianDiv'); if(nmDiv) nmDiv.classList.add('hidden'); initWaveInputs(); var badge = document.getElementById('pmStatusBadge'); if(badge){ badge.innerText = "รอรหัสสินทรัพย์..."; badge.className = "px-3 py-1 rounded-full text-[10px] font-bold tracking-wider bg-gray-200 text-gray-500 shadow-sm transition-colors duration-300"; } var pInt = document.getElementById('pmIntervalDisplay'); if(pInt) pInt.innerText = "-"; var pLast = document.getElementById('pmLastDateDisplay'); if(pLast) pLast.innerText = "-"; google.script.run.withSuccessHandler(populateDynamicDropdowns).getDynamicDropdowns(); }); } else { Swal.fire({ icon: 'error', title: 'ผิดพลาด!', text: res.message }); }
+          }).withFailureHandler(function(err) { Swal.fire({ icon: 'error', title: 'ล้มเหลว!', text: err.message }); }).saveMaintenanceData(formData);
+        } catch(e) { Swal.fire({ icon: 'error', title: 'อ่านไฟล์ล้มเหลว' }); }
+      }
+    });
+  }
+
+  async function submitBorrowReturn(actionType) {
+    var formId = actionType === 'borrow' ? 'borrowForm' : 'returnForm'; if (!validateForm(formId)) return;
+    var imgFieldId = actionType === 'borrow' ? 'brImage' : 'rtImage'; var imgEl = document.getElementById(imgFieldId); var imgFile = imgEl ? imgEl.files[0] : null;
+    if(!imgFile) { Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: 'กรุณาแนบรูปถ่ายปัจจุบันเพื่อแนบเป็นหลักฐาน' }); return; }
+    Swal.fire({ title: actionType === 'borrow' ? 'ยืนยันการยืมเครื่องมือ?' : 'ยืนยันรับคืนเข้าคลัง?', icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#94a3b8', confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก', customClass: { popup: 'rounded-3xl' }, reverseButtons: true }).then(async function(result) {
+      if (result.isConfirmed) {
+        showLoadingAlert('กำลังอัปเดตสถานะคลัง...', 'upload'); var formData = { action: actionType };
+        try {
+          formData[actionType + 'Image'] = await readFileAsBase64(imgFile);
+          if(actionType === 'borrow') {
+            var brAssEl = document.getElementById('brAssetId'); var assetStr = brAssEl ? brAssEl.value : ""; formData.toolId = assetStr.split(' - ')[0]; formData.toolName = assetStr; formData.borrowerName = document.getElementById('brBorrower') ? document.getElementById('brBorrower').value : ''; formData.branch = document.getElementById('brBranch') ? document.getElementById('brBranch').value : ''; formData.brDate = document.getElementById('brDate') ? document.getElementById('brDate').value : ''; formData.expectedReturn = document.getElementById('brExpected') ? document.getElementById('brExpected').value : ''; formData.conditionBorrow = (document.getElementById('brCondition') && document.getElementById('brCondition').value === 'other') ? document.getElementById('newBrCondition').value : document.getElementById('brCondition').value; formData.brIssuerSelect = document.getElementById('brIssuerSelect') ? document.getElementById('brIssuerSelect').value : ''; formData.newBrIssuer = document.getElementById('newBrIssuer') ? document.getElementById('newBrIssuer').value : ''; formData.remarks = document.getElementById('brRemarks') ? document.getElementById('brRemarks').value : '';
+          } else {
+            var rtTransEl = document.getElementById('rtTransId'); var transStr = rtTransEl ? rtTransEl.value : ""; formData.transactionId = transStr.split(' - ')[0]; formData.rtReturnDate = document.getElementById('rtReturnDate') ? document.getElementById('rtReturnDate').value : ''; formData.conditionReturn = (document.getElementById('rtCondition') && document.getElementById('rtCondition').value === 'other') ? document.getElementById('newRtCondition').value : document.getElementById('rtCondition').value; formData.receiver = (document.getElementById('rtReceiver') && document.getElementById('rtReceiver').value === 'other') ? document.getElementById('newRtReceiver').value : document.getElementById('rtReceiver').value;
+          }
+          google.script.run.withSuccessHandler(function(res) {
+            if(res.success) { 
+              var condStr = actionType === 'borrow' ? formData.conditionBorrow : formData.conditionReturn;
+              if (condStr && (condStr.indexOf('ชำรุด') !== -1 || condStr.indexOf('สูญหาย') !== -1)) speakAI('แจ้งเตือน! ตรวจพบอุปกรณ์ชำรุดเสียหาย โปรดตรวจสอบด่วนค่ะ!', true); else speakAI('บันทึกข้อมูลเรียบร้อยแล้วค่ะ');
+              Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, customClass: { popup: 'rounded-3xl' } }).then(function() { var fEl = document.getElementById(formId); if(fEl) fEl.reset(); clearFile(imgFieldId); if(actionType === 'borrow') { var d1 = document.getElementById('newBrConditionDiv'); if(d1) d1.classList.add('hidden'); var d2 = document.getElementById('newBrIssuerDiv'); if(d2) d2.classList.add('hidden'); } else { var d3 = document.getElementById('newRtConditionDiv'); if(d3) d3.classList.add('hidden'); var d4 = document.getElementById('newRtReceiverDiv'); if(d4) d4.classList.add('hidden'); google.script.run.withSuccessHandler(populateOpenTransList).getOpenTransactions(); } initWaveInputs(); google.script.run.withSuccessHandler(populateDynamicDropdowns).getDynamicDropdowns(); }); 
+            } else { Swal.fire({ icon: 'error', title: 'ผิดพลาด!', text: res.message }); }
+          }).withFailureHandler(function(err) { Swal.fire({ icon: 'error', title: 'ล้มเหลว!', text: err.message }); }).saveBorrowReturnData(formData);
+        } catch(e) { Swal.fire({ icon: 'error', title: 'อ่านไฟล์ล้มเหลว' }); }
+      }
+    });
+  }
+
+  async function submitTransferOut() {
+  if (!validateForm('transferForm')) return;
+  var imgFileEl = document.getElementById('tfImage'); var imgFile = imgFileEl ? imgFileEl.files[0] : null;
+  var docFileEl = document.getElementById('tfDocument'); var docFile = docFileEl ? docFileEl.files[0] : null;
+  
+  if(!imgFile) { 
+     if(typeof speakAI === 'function') speakAI('กรุณาแนบรูปถ่ายสภาพอุปกรณ์ ก่อนจัดส่งด้วยค่ะ', true);
+     Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: 'กรุณาถ่ายรูปสภาพอุปกรณ์ก่อนจัดส่งเพื่อเป็นหลักฐาน' }); 
+     return; 
+  }
+
+  Swal.fire({ 
+    title: 'ยืนยันการโอนย้ายออก?', 
+    text: 'สถานะของสินทรัพย์จะถูกเปลี่ยนเป็น โอนย้ายออกแล้ว', 
+    icon: 'question', 
+    showCancelButton: true, 
+    confirmButtonColor: '#2563eb', 
+    cancelButtonColor: '#94a3b8', 
+    confirmButtonText: 'ยืนยัน', 
+    cancelButtonText: 'ยกเลิก', 
+    customClass: { popup: 'rounded-3xl' }, 
+    reverseButtons: true 
+  }).then(async function(result) {
+    if (result.isConfirmed) {
+      
+      document.getElementById('transferForm').classList.add('hidden');
+      document.getElementById('transferLoading').classList.remove('hidden');
+      
+      if(typeof showLoadingAlert === 'function') showLoadingAlert('กำลังบันทึกและโอนย้ายข้อมูล...', 'upload'); 
+      
+      var tfAssEl = document.getElementById('tfAssetId'); var assetStr = tfAssEl ? tfAssEl.value : "";
+      
+      var formData = { 
+        assetId: assetStr.split(' - ')[0], 
+        assetName: assetStr,
+        date: document.getElementById('tfDate') ? document.getElementById('tfDate').value : '',
+        destination: (document.getElementById('tfDestination') && document.getElementById('tfDestination').value === 'other') ? document.getElementById('new_tfDestination_input').value : document.getElementById('tfDestination').value,
+        issuer: (document.getElementById('tfIssuer') && document.getElementById('tfIssuer').value === 'other') ? document.getElementById('new_tfIssuer_input').value : document.getElementById('tfIssuer').value,
+        condition: (document.getElementById('tfCondition') && document.getElementById('tfCondition').value === 'other') ? document.getElementById('new_tfCondition_input').value : document.getElementById('tfCondition').value,
+        remarks: document.getElementById('tfRemarks') ? document.getElementById('tfRemarks').value : ''
+      };
+      
+      try {
+        formData.tfImage = await readFileAsBase64(imgFile);
+        if (docFile) formData.tfDocument = await readFileAsBase64(docFile);
+
+        google.script.run.withSuccessHandler(function(res) {
+          
+          document.getElementById('transferLoading').classList.add('hidden');
+          document.getElementById('transferForm').classList.remove('hidden');
+
+          if(res.success) { 
+            if (formData.condition && formData.condition.indexOf('ชำรุด') !== -1) { 
+              if(typeof speakAI === 'function') speakAI('แจ้งเตือน! คุณกำลังโอนย้ายอุปกรณ์ที่ชำรุด กรุณาระมัดระวังในการขนส่งด้วยค่ะ', true); 
+            } else { 
+              if(typeof speakAI === 'function') speakAI('บันทึกการโอนย้ายออก เรียบร้อยแล้วค่ะ'); 
+            }
+
+            Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, customClass: { popup: 'rounded-3xl' } }).then(function() { 
+              var tForm = document.getElementById('transferForm'); if(tForm) tForm.reset(); 
+              if(typeof clearFile === 'function') { clearFile('tfImage'); clearFile('tfDocument'); }
+              
+              var n1 = document.getElementById('new_tfDestination'); if(n1) n1.classList.add('hidden'); 
+              var n2 = document.getElementById('new_tfIssuer'); if(n2) n2.classList.add('hidden'); 
+              var n3 = document.getElementById('new_tfCondition'); if(n3) n3.classList.add('hidden');
+              
+              var tfAssetIdEl = document.getElementById('tfAssetId');
+              if(tfAssetIdEl) {
+                 tfAssetIdEl.style.height = '52px'; 
+                 tfAssetIdEl.classList.remove('has-value');
+              }
+              
+              var tfClearB = document.getElementById('tfClearBtn'); if(tfClearB) tfClearB.classList.add('hidden');
+              var tfDropB = document.getElementById('tfDropdownToggleBtn'); if(tfDropB) tfDropB.classList.remove('hidden');
+              
+              var previewCont = document.getElementById('tfPreviewContainer');
+              if(previewCont) {
+                  previewCont.className = "mt-3 w-full border border-dashed border-gray-300 bg-gray-50 rounded-xl flex flex-col items-center justify-center overflow-hidden transition-all duration-500 h-20 shadow-sm";
+                  var pPlace = document.getElementById('tfPreviewPlaceholder'); if(pPlace) pPlace.classList.remove('hidden');
+                  var pImg = document.getElementById('tfPreviewImg'); if(pImg) pImg.classList.add('hidden');
+                  var previewText = document.getElementById('tfPreviewText');
+                  if(previewText) { previewText.innerText = "รอโหลดรูปภาพ..."; previewText.className = "text-xs font-medium tracking-wide"; }
+              }
+
+              if(typeof initWaveInputs === 'function') initWaveInputs(); 
+              if(typeof populateDynamicDropdowns === 'function') {
+                  google.script.run.withSuccessHandler(populateDynamicDropdowns).getDynamicDropdowns(); 
+              }
+            }); 
+          } else { 
+            Swal.fire({ icon: 'error', title: 'ผิดพลาด!', text: res.message }); 
+          }
+        }).withFailureHandler(function(err) { 
+          
+          document.getElementById('transferLoading').classList.add('hidden');
+          document.getElementById('transferForm').classList.remove('hidden');
+          
+          Swal.fire({ icon: 'error', title: 'ล้มเหลว!', text: err.message }); 
+        }).saveTransferOutData(formData);
+        
+      } catch(e) { 
+        
+        document.getElementById('transferLoading').classList.add('hidden');
+        document.getElementById('transferForm').classList.remove('hidden');
+        
+        Swal.fire({ icon: 'error', title: 'อ่านไฟล์ล้มเหลว', text: e.message }); 
+      }
+    }
+  });
+}
+
+  // ==========================================
+  // 📷 โซนที่ 15: ระบบ QR Scanner (อัปเกรด ดึงเฉพาะรหัส ID)
+  // ==========================================
+  var scanTargetInput = null;
+  function openQRScanner(targetInputId) { 
+      scanTargetInput = targetInputId; 
+      window.open(GITHUB_SCANNER_URL, '_blank'); 
+  }
+
+  window.addEventListener('message', function(event) {
+    var SECRET_KEY = "N1u3@THA-SAM_K07e03y2026"; 
+    if (event.data && event.data.type === 'QR_SCANNED') {
+      if (event.data.key !== SECRET_KEY) return; 
+      
+      var scannedId = event.data.id; 
+      var finalTargetId = scanTargetInput;
+      
+      if (!finalTargetId) { 
+          var borrowView = document.getElementById('view-borrow'); 
+          finalTargetId = (borrowView && borrowView.style.display !== 'none') ? 'brAssetId' : 'mtAssetId'; 
+      }
+
+      var targetEl = document.getElementById(finalTargetId);
+      if(targetEl) {
+        
+        // 🌟 1. สกัดเอาเฉพาะ "รหัสสินทรัพย์ (Clean ID)" เท่านั้น
+        var cleanId = scannedId;
+        if (scannedId.indexOf('id=') !== -1) {
+            cleanId = scannedId.split('id=')[1].split('&')[0]; // ตัดจาก URL
+        } else if (scannedId.indexOf(' - ') !== -1) {
+            cleanId = scannedId.split(' - ')[0]; // ตัดจากข้อความยาว
+        }
+        cleanId = cleanId.trim();
+
+        // 🌟 2. แยกการทำงานตามหน้าจอ (เน้นคลีน สั้นๆ แต่โหลดข้อมูลครบ)
+        if (finalTargetId === 'dashSearchId' || finalTargetId === 'mtAssetId' || finalTargetId === 'brAssetId' || finalTargetId === 'tfAssetId') {
+            
+            // ใส่แค่รหัสสั้นๆ ลงในช่องกรอก
+            targetEl.value = cleanId;
+            
+            // ใช้งานฟังก์ชันดึงข้อมูลตามหน้าจอที่กำลังเปิดอยู่
+            if (finalTargetId === 'dashSearchId') {
+                if(typeof fetchDashHistory === 'function') setTimeout(fetchDashHistory, 200);
+                if(typeof updateDashInputUI === 'function') updateDashInputUI(false);
+            } 
+            else if (finalTargetId === 'mtAssetId') {
+                if(typeof fetchAssetPMInfo === 'function') fetchAssetPMInfo(cleanId); 
+                if(typeof fetchAssetPreview === 'function') fetchAssetPreview(cleanId, 'mt');
+            } 
+            else if (finalTargetId === 'brAssetId') {
+                if(typeof fetchAssetPreview === 'function') fetchAssetPreview(cleanId, 'br');
+            }
+            else if (finalTargetId === 'tfAssetId') {
+                if(typeof fetchAssetPreview === 'function') fetchAssetPreview(cleanId, 'tf'); 
+                var clearB = document.getElementById('tfClearBtn'); if(clearB) clearB.classList.remove('hidden');
+                var dropB = document.getElementById('tfDropdownToggleBtn'); if(dropB) dropB.classList.add('hidden');
+            }
+            
+        } 
+        else if(finalTargetId === 'rtTransId') {
+            // หน้าคืนเครื่องมือ (ยังคงโชว์รหัส+ชื่อ เพื่อความชัวร์ตอนรับคืน)
+            var matchedRt = typeof openTransactionsData !== 'undefined' ? openTransactionsData.find(function(a) { return a.transId === cleanId || (a.toolName && a.toolName.indexOf(cleanId) !== -1); }) : null;
+            targetEl.value = matchedRt ? (matchedRt.transId + ' - ' + matchedRt.toolName + ' (' + matchedRt.borrower + ')') : cleanId;
+            var assetIdToPreview = matchedRt ? matchedRt.toolName.split(' - ')[0] : cleanId;
+            if(typeof fetchAssetPreview === 'function') fetchAssetPreview(assetIdToPreview, 'rt');
+        } 
+        else {
+            // หน้าอื่นๆ (ถ้ามี)
+            var matched = typeof assetMasterList !== 'undefined' ? assetMasterList.find(function(a) { return a.id === cleanId || a.id.indexOf(cleanId) !== -1; }) : null;
+            targetEl.value = matched ? (matched.id + ' - ' + matched.name + ' (' + matched.category + ')') : cleanId;
+        }
+
+        // 🌟 3. อัปเดต UI ช่องกรอกให้สวยงาม
+        targetEl.classList.add('has-value'); 
+        targetEl.dispatchEvent(new Event('input', { bubbles: true })); 
+        targetEl.dispatchEvent(new Event('change', { bubbles: true }));
+
+        if(targetEl.tagName && targetEl.tagName.toLowerCase() === 'textarea') {
+            targetEl.style.height = ''; targetEl.style.height = targetEl.scrollHeight + 'px';
+        }
+
+        // 🌟 4. แจ้งเตือนสแกนสำเร็จ
+        if(typeof speakAI === 'function') speakAI("สแกนรหัส " + cleanId + " สำเร็จค่ะ");
+        Swal.fire({ icon: 'success', title: 'สแกนสำเร็จ!', text: 'รหัส: ' + cleanId, timer: 1500, showConfirmButton: false });
+      }
+    }
+  });
+
+  if (!window.originalCreateAssetTagImage) {
+      if(typeof createAssetTagImage === 'function') {
+          window.originalCreateAssetTagImage = createAssetTagImage;
+      }
+  }
+  
+  createAssetTagImage = function(data) {
+      if(!window.originalCreateAssetTagImage) return "";
+      var originalId = data.assetId; data.assetId = APP_EXEC_URL + '?page=maintenance&id=' + originalId;
+      var base64Img = window.originalCreateAssetTagImage(data); data.assetId = originalId; return base64Img;
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof google !== 'undefined' && google.script && google.script.url) {
+      google.script.url.getLocation(function(location) {
+        var params = location.parameter;
+        
+        if (params.page) {
+          setTimeout(function() { 
+            switchView(params.page); 
+            if (params.id) {
+              var targetInput;
+              if (params.page === 'maintenance') targetInput = document.getElementById('mtAssetId');
+              if (params.page === 'borrow') targetInput = document.getElementById('brAssetId');
+              if (params.page === 'transfer') targetInput = document.getElementById('tfAssetId'); 
+              
+              if (targetInput && typeof assetMasterList !== 'undefined' && assetMasterList) {
+                var matched = assetMasterList.find(function(a) { return a.id === params.id || a.id.indexOf(params.id) !== -1; });
+                if (matched) {
+                  targetInput.value = matched.id + ' - ' + matched.name + ' (' + matched.category + ')';
+                  targetInput.dispatchEvent(new Event('input')); targetInput.dispatchEvent(new Event('change'));
+                  
+                  if(targetInput.tagName && targetInput.tagName.toLowerCase() === 'textarea') {
+                      targetInput.style.height = ''; targetInput.style.height = targetInput.scrollHeight + 'px';
+                  }
+
+                  if(params.page === 'maintenance') { fetchAssetPMInfo(params.id); fetchAssetPreview(params.id, 'mt'); }
+                  if(params.page === 'borrow') { fetchAssetPreview(params.id, 'br'); }
+                  if(params.page === 'transfer') {
+                      fetchAssetPreview(params.id, 'tf');
+                      var clearB = document.getElementById('tfClearBtn'); if(clearB) clearB.classList.remove('hidden');
+                      var dropB = document.getElementById('tfDropdownToggleBtn'); if(dropB) dropB.classList.add('hidden');
+                  }
+
+                  setTimeout(function() { if(typeof speakAI === 'function') speakAI("ดึงข้อมูลรหัส " + params.id + " เรียบร้อยแล้วค่ะ"); if (navigator.vibrate) navigator.vibrate([100, 50, 100]); }, 800);
+                }
+              }
+            }
+          }, 1200); 
+        } else {
+          setTimeout(function() { 
+            switchView('dashboard'); 
+          }, 100);
+        }
+      });
+    } else {
+      setTimeout(function() { 
+        switchView('dashboard'); 
+      }, 100);
+    }
+  });
+
+function handleDateInput(inputEl) {
+  const container = inputEl.parentElement;
+  const clearBtn = container.querySelector('[id$="ClearBtn"]');
+  
+  if (inputEl.value !== '') {
+    inputEl.classList.add('has-value');
+    if (clearBtn) clearBtn.classList.remove('hidden');
+  } else {
+    inputEl.classList.remove('has-value');
+    if (clearBtn) clearBtn.classList.add('hidden');
+  }
+}
+
+function toggleDateIcons(inputEl, isActive) {
+  const container = inputEl.parentElement;
+  const calIcon = container.querySelector('[id$="CalIcon"]');
+  const chevIcon = container.querySelector('[id$="ChevronIcon"]');
+  
+  if (isActive) {
+    if (calIcon) calIcon.classList.add('hidden');
+    if (chevIcon) chevIcon.classList.remove('hidden');
+  } else {
+    setTimeout(() => {
+      if (calIcon) calIcon.classList.remove('hidden');
+      if (chevIcon) chevIcon.classList.add('hidden');
+    }, 200); 
+  }
+}
+
+function clearDateInput(btnEl, inputId) {
+  const inputEl = document.getElementById(inputId);
+  if(inputEl) {
+    inputEl.value = ''; 
+    handleDateInput(inputEl); 
+  }
+}
+
+  function downloadAssetTagImage() {
+      const canvas = document.getElementById('assetTagCanvasDraw');
+      if(!canvas) return;
+      
+      let d = new Date();
+      let timestamp = d.getFullYear() + 
+                      String(d.getMonth()+1).padStart(2,'0') + 
+                      String(d.getDate()).padStart(2,'0') + "-" + 
+                      String(d.getHours()).padStart(2,'0') + 
+                      String(d.getMinutes()).padStart(2,'0') + 
+                      String(d.getSeconds()).padStart(2,'0');
+      
+      let assetId = window.currentGeneratedAssetId || "AST-Unknown";
+      let fileName = "AssetTagQR-" + assetId + "_" + timestamp + ".jpg";
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+      const link = document.createElement('a');
+      link.download = fileName; 
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      const overlay = document.getElementById('downloadSuccessOverlay');
+      if(overlay) {
+          overlay.classList.remove('hidden');
+          setTimeout(() => { overlay.classList.add('hidden'); }, 2000);
+      }
+  }
+
+  function resetToHome() {
+      var modal = document.getElementById('qrSuccessModal');
+      if(modal) modal.classList.add('hidden');
+      
+      var form = document.getElementById('warrantyForm');
+      if(form) form.reset();
+      
+      try {
+          window.top.location.href = window.top.location.href;
+      } catch (e) {
+          window.location.replace(window.location.href);
+      }
+  }
+  
+  function resetSystemUI() {
+      var modal = document.getElementById('qrSuccessModal');
+      if (modal) modal.classList.add('hidden');
+      
+      var form = document.getElementById('warrantyForm');
+      if (form) form.reset();
+      
+      if (typeof currentStep !== 'undefined') currentStep = 1;
+      
+      document.querySelectorAll('.step-content').forEach((el, index) => {
+          if (index === 0) el.classList.remove('hidden'); 
+          else el.classList.add('hidden'); 
+      });
+      
+      var prevBtn = document.getElementById('prevBtn');
+      var nextBtn = document.getElementById('nextBtn');
+      var submitBtn = document.getElementById('submitBtn');
+      if(prevBtn) prevBtn.classList.add('hidden');
+      if(nextBtn) nextBtn.classList.remove('hidden');
+      if(submitBtn) submitBtn.classList.add('hidden');
+      
+      document.querySelectorAll('.input-clear-btn').forEach(btn => btn.classList.add('hidden'));
+      
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      var latestIdSpan = document.getElementById('latestAssetId');
+      if(latestIdSpan) {
+          latestIdSpan.innerText = "กำลังอัปเดต..."; 
+          latestIdSpan.classList.add('animate-pulse'); 
+          
+          google.script.run.withSuccessHandler(function(newLatestId) {
+              latestIdSpan.innerText = newLatestId; 
+              latestIdSpan.classList.remove('animate-pulse'); 
+          }).getLatestAssetId();
+      }
+  }
+
+  // 🟢 ฟังก์ชันโหลดข้อมูลเข้าหน้า GMRL เมื่อกดเข้าเมนู (เวอร์ชันล็อกเป้าลิสต์รายการ)
+  function initGmrlPage() {
+      // 1. ล็อกเป้าหมวดหมู่งาน (Col D) ตามคำสั่งเจ้านายเป๊ะๆ
+      var gmrlCategories = [
+          "งานไฟฟ้า", "งานระบบท่อน้ำต่างๆ", "งานระบบน้ำ / ประปา", "งานสี", 
+          "งานซ่อมแซม / บำรุงพื้นที่", "งานตรวจเช็คจุดต่างๆ ในพื้นที่", 
+          "งานซ่อมแซม / พื้นที่เช่า", "งานตรวจเช็ค / พื้นที่เช่า", 
+          "งานติดตั้งเพิ่มเติม", "งานก่อสร้าง / ต่อเติม", "งานระบบไอที", 
+          "งานสุขาภิบาล", "งานระบบเสียง", "งานสัญญาณอินเตอร์เน็ต", 
+          "งานสัญญาณโทรศัพท์", "งานสัญญาณเคเบิลทีวี"
+      ];
+      initSmartDropdown({ id: 'gmrlCategory', data: gmrlCategories, allowOther: true });
+
+      // 2. ล็อกเป้าช่างที่ดำเนินการ (Col I) ตามคำสั่งเจ้านายเป๊ะๆ
+      var gmrlTechs = ["คุณ นุ (แอดมิน)", "ช่างอาร์ม", "ช่างโจ", "ทีมช่าง THA"];
+      initSmartDropdown({ id: 'gmrlTechnician', data: gmrlTechs, allowOther: true });
+
+      // 3. ผู้ทำรายการ (Col J) ดึงจากรายชื่อแอดมิน/ผู้ใช้งานหลัก
+      google.script.run.withSuccessHandler(function(data) {
+          var issuers = data.brIssuers || ["คุณ นุ (แอดมิน)"];
+          initSmartDropdown({ id: 'gmrlIssuer', data: issuers, allowOther: true });
+      }).getDynamicDropdowns();
+
+      // 4. ผูกระบบปฏิทิน Flatpickr 
+      if(typeof flatpickr !== 'undefined') {
+          flatpickr(".gmrl-date-picker", { 
+              locale: "th", dateFormat: "Y-m-d", disableMobile: "true", 
+              onChange: function(selectedDates, dateStr, instance) { 
+                  instance.element.classList.add('has-value'); 
+                  if(typeof handleDateInput === 'function') handleDateInput(instance.element);
+                  if(typeof toggleInputClearBtn === 'function') toggleInputClearBtn(instance.element);
+                  if(typeof toggleDateIcons === 'function') toggleDateIcons(instance.element, false);
+              }
+          });
+      }
+      
+      // อัปเดตเอฟเฟกต์ลูกคลื่น
+      if(typeof initWaveInputs === 'function') initWaveInputs();
+  }
+
+  // 🟢 ฟังก์ชันส่งข้อมูล GMRL แบบใหม่ (แก้ไขปัญหาข้อ 1-6)
+  async function submitGmrlForm() {
+      // ⚡ ฟังก์ชันเล็กๆ แปลงวันที่จาก "YYYY-MM-DD" ให้เป็น "DD/MM/YYYY" ก่อนส่งลงชีต (แก้ปัญหา 1, 2)
+      const formatToDDMMYYYY = (dateStr) => {
+          if (!dateStr) return '';
+          const parts = dateStr.split('-');
+          return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+      };
+
+      // ⚡ ฟังก์ชันแปลงไฟล์เป็น Object {base64, name, mimeType} เพื่อส่งให้ Upload_Sys.gs (แก้ปัญหา 5, 6)
+      const processFileForUpload = (inputId) => {
+          return new Promise((resolve) => {
+              const el = document.getElementById(inputId);
+              if (el && el.files.length > 0) {
+                  const file = el.files[0];
+                  const reader = new FileReader();
+                  reader.onload = () => resolve({
+                      base64: reader.result.split(',')[1], // ตัด header data:image... ทิ้ง
+                      name: file.name,
+                      mimeType: file.type
+                  });
+                  reader.readAsDataURL(file);
+              } else {
+                  resolve(null);
+              }
+          });
+      };
+
+      Swal.fire({ 
+          title: 'บันทึกประวัติ GMRL?', 
+          icon: 'question', 
+          showCancelButton: true, 
+          confirmButtonColor: '#2563eb', 
+          cancelButtonColor: '#94a3b8', 
+          confirmButtonText: 'ยืนยัน', 
+          cancelButtonText: 'ยกเลิก', 
+          customClass: { popup: 'rounded-3xl' }, 
+          reverseButtons: true 
+      }).then(async function(result) {
+          if (result.isConfirmed) {
+              if(typeof showLoadingAlert === 'function') showLoadingAlert('กำลังบันทึกข้อมูลซ่อมบำรุง...', 'upload'); 
+              
+              try {
+                  // แพ็กเกจข้อมูลส่งหลังบ้านทั้งหมด
+                  var formData = {
+                      // ดึงมาแล้วสลับเป็น DD/MM/YYYY
+                      startDate: formatToDDMMYYYY(document.getElementById('gmrlDate') ? document.getElementById('gmrlDate').value : ''),
+                      endDate: formatToDDMMYYYY(document.getElementById('gmrlEndDate') ? document.getElementById('gmrlEndDate').value : ''),
+                      
+                      category: getDropdownVal('gmrlCategory', 'new_gmrlCategory'),
+                      type: document.getElementById('gmrlType') ? document.getElementById('gmrlType').value : '', // แก้ข้อ 3
+                      location: document.getElementById('gmrlLocation') ? document.getElementById('gmrlLocation').value : '',
+                      details: document.getElementById('gmrlDetails') ? document.getElementById('gmrlDetails').value : '',
+                      
+                      // แก้ข้อ 4: ถ้าช่องราคาว่าง ให้ส่ง "" (ค่าว่าง) แทนที่ระบบจะแอบส่ง 0
+                      cost: document.getElementById('gmrlCost') && document.getElementById('gmrlCost').value !== '' ? document.getElementById('gmrlCost').value : '',
+                      
+                      technician: getDropdownVal('gmrlTechnician', 'new_gmrlTechnician'),
+                      issuer: getDropdownVal('gmrlIssuer', 'new_gmrlIssuer'),
+                      remarks: document.getElementById('gmrlRemarks') ? document.getElementById('gmrlRemarks').value : ''
+                  };
+
+                  // อัปโหลดไฟล์ให้อยู่ใน Format ที่ Upload_Sys.gs รอรับ
+                  formData.gmrlImage = await processFileForUpload('gmrlImage');
+                  formData.gmrlDocument = await processFileForUpload('gmrlDocument');
+
+                  // ส่งไปฟังก์ชัน saveGmrlData หลังบ้าน
+                  google.script.run.withSuccessHandler(function(res) {
+                      if(res && res.success) {
+                          if(typeof speakAI === 'function') speakAI('บันทึกข้อมูลซ่อมบำรุงเรียบร้อยแล้วค่ะ');
+                          Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'บันทึกข้อมูลลง GMRL เรียบร้อยแล้ว', customClass: { popup: 'rounded-3xl' } }).then(function() { 
+                              // สั่งล้างฟอร์มทั้งหมด
+                              var form = document.getElementById('gmrlForm');
+                              if(form) form.reset();
+                              if(typeof clearFile === 'function') { clearFile('gmrlImage'); clearFile('gmrlDocument'); }
+                              
+                              ['gmrlCategory', 'gmrlTechnician', 'gmrlIssuer'].forEach(id => {
+                                  if(typeof clearSmartDropdown === 'function') clearSmartDropdown(id);
+                              });
+                              
+                              // ดึงคลื่น Label ลงมาที่เดิม
+                              document.querySelectorAll('#gmrlForm .wave-input').forEach(el => {
+                                  el.classList.remove('has-value');
+                                  if(el.tagName === 'TEXTAREA') el.style.height = '';
+                              });
+                          });
+                      } else {
+                          Swal.fire({ icon: 'error', title: 'ผิดพลาด!', text: res ? res.message : 'เกิดข้อผิดพลาดในการบันทึก' });
+                      }
+                  }).withFailureHandler(function(err) {
+                      Swal.fire({ icon: 'error', title: 'การเชื่อมต่อล้มเหลว!', text: err.message });
+                  }).saveGmrlData(formData); 
+                  
+              } catch(e) {
+                  Swal.fire({ icon: 'error', title: 'การอ่านไฟล์ล้มเหลว', text: e.message });
+              }
+          }
+      });
+  }
+
+// ==========================================
+// 🖨️ โซนระบบพิมพ์ป้ายซ่อม (Reprint Tag - ฉบับแยกเฉพาะกิจ)
+// ==========================================
+let globalAssetDataForReprint = []; 
+
+function initReprintTagPage() {
+    showLoadingAlert('กำลังโหลดฐานข้อมูลสินทรัพย์...', 'download');
+    
+    google.script.run.withSuccessHandler(function(data) {
+        Swal.close();
+        globalAssetDataForReprint = data; 
+        renderReprintList(data); 
+    }).withFailureHandler(function(err) {
+        Swal.fire('ข้อผิดพลาด', err.message, 'error');
+    }).getAllAssetsForReprint();
+}
+
+// 🔵 6. ระบบวาดรายการ Rich Card (UI Rendering - อัปเดตโชว์ Location จาก Col H)
+function renderReprintList(data) {
+    const list = document.getElementById('reprintCustomList');
+    if(!list) return;
+    
+    list.innerHTML = '';
+    
+    if(data.length === 0) {
+        list.innerHTML = '<li class="p-4 text-center text-gray-400 font-medium italic">ไม่พบข้อมูลสินทรัพย์...</li>';
+        return;
+    }
+
+    data.forEach(item => {
+        let li = document.createElement('li');
+        li.className = "p-3 border-b border-blue-50 hover:bg-blue-100 cursor-pointer transition-all active:bg-blue-200";
+        
+        li.onclick = (e) => {
+            e.stopPropagation();
+            const input = document.getElementById('reprintSearchInput');
+            input.value = `${item.assetId} : ${item.productName}`;
+            document.getElementById('clearReprintBtn').classList.remove('hidden');
+            hideReprintList();
+        };
+
+        // ✨ Badge มุมขวาบน จะโชว์ค่า Location จาก Column H (item.location)
+        li.innerHTML = `
+            <div class="flex justify-between items-start mb-1">
+                <span class="text-[#2563eb] font-black text-sm">${item.assetId}</span>
+                <span class="bg-blue-100 text-[#2563eb] text-[10px] sm:text-[11px] px-2.5 py-1 rounded-full font-bold shadow-sm border border-blue-200 max-w-[120px] truncate">
+                   ${item.location || '-'}
+                </span>
+            </div>
+            <div class="font-bold text-gray-800 text-[14px] leading-tight pr-2">${item.productName}</div>
+            <div class="text-gray-400 text-[11px] mt-1.5 flex gap-2">
+                <span>รุ่น: ${item.model || '-'}</span>
+                <span class="text-gray-300">|</span>
+                <span>S/N: ${item.serialNumber || '-'}</span>
+            </div>
+        `;
+        list.appendChild(li);
+    });
+}
+
+function filterReprintList(val) {
+    if(val) document.getElementById('clearReprintBtn').classList.remove('hidden');
+    else document.getElementById('clearReprintBtn').classList.add('hidden');
+    
+    document.getElementById('reprintListContainer').classList.remove('hidden');
+    
+    let lower = val.toLowerCase();
+    let filtered = globalAssetDataForReprint.filter(item => 
+        item.assetId.toLowerCase().includes(lower) || 
+        item.productName.toLowerCase().includes(lower) ||
+        item.serialNumber.toLowerCase().includes(lower)
+    );
+    renderReprintList(filtered);
+}
+
+function showReprintList() {
+    document.getElementById('reprintListContainer').classList.remove('hidden');
+}
+
+function clearReprintSearch() {
+    document.getElementById('reprintSearchInput').value = '';
+    document.getElementById('clearReprintBtn').classList.add('hidden');
+    renderReprintList(globalAssetDataForReprint);
+    document.getElementById('reprintListContainer').classList.remove('hidden');
+    document.getElementById('reprintSearchInput').focus();
+}
+
+// 📌 ฟังก์ชันสั่งการ (แก้ปัญหาโหลดแว๊บแล้วหาย)
+async function generateReprintTag() {
+    let searchVal = document.getElementById('reprintSearchInput').value;
+    if(!searchVal) return Swal.fire({ icon: 'warning', title: 'แจ้งเตือน', text: 'กรุณาค้นหาและเลือกสินทรัพย์ก่อนครับ' });
+
+    let targetAssetId = searchVal.split(' : ')[0].trim();
+    let assetObj = globalAssetDataForReprint.find(a => a.assetId === targetAssetId);
+
+    if(!assetObj) return Swal.fire({ icon: 'error', title: 'ไม่พบข้อมูล', text: 'ไม่พบข้อมูลในระบบ' });
+
+    showLoadingAlert('S.A.M. กำลังวาดป้าย Tag...', 'upload'); 
+    
+    try {
+        // วาดป้ายเงียบๆ เป็น Background
+        await captureReprintTagBase64(assetObj);
+        
+        // พอวาดเสร็จ ปิดหน้าโหลด
+        Swal.close(); 
+        
+        // 🌟 สั่งเด้งหน้าต่างโชว์รูปอย่างสง่างาม (แก้ปัญหา opacity-0 ล่องหน)
+        let modal = document.getElementById('qrSuccessModal');
+        let content = document.getElementById('qrModalContent');
+        if(modal) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.classList.add('opacity-100'); // บังคับให้แสดงตัว
+                if(content) {
+                    content.classList.remove('scale-95');
+                    content.classList.add('scale-100'); // อนิเมชันซูมเข้า
+                }
+            }, 50);
+        }
+    } catch (error) {
+        Swal.close();
+        Swal.fire({ icon: 'error', title: 'วาดป้ายล้มเหลว', text: error.message });
+    }
+}
+
+// 📌 เครื่องยนต์วาดรูป (แยกมาเฉพาะ Reprint ไม่ยุ่งกับของเดิม)
+async function captureReprintTagBase64(formData) {
+    return new Promise((resolve, reject) => {
+        try {
+            window.currentGeneratedAssetId = formData.assetId || "AST-Unknown";
+            var tempQrDiv = document.createElement('div');
+            new QRCode(tempQrDiv, { text: formData.assetId, width: 250, height: 250, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.M });
+
+            setTimeout(async () => {
+                var qrCanvas = tempQrDiv.querySelector('canvas');
+                var qrBase64 = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
+
+                try { await document.fonts.load(`bold 24px 'Noto Sans Thai'`); } catch(e) {}
+
+                var tagCanvas = document.getElementById('assetTagCanvasDraw');
+                if(!tagCanvas) throw new Error("ไม่พบกระดานวาดรูป Canvas");
+                
+                var ctx = tagCanvas.getContext('2d');
+                const w = tagCanvas.width;   
+                const h = tagCanvas.height;  
+                const navy = "#06245C";
+                const fontName = "'Noto Sans Thai', sans-serif";
+
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, w, h);
+                ctx.strokeStyle = "#D1D5DB"; 
+                ctx.lineWidth = 2;
+                ctx.strokeRect(1, 1, w - 2, h - 2);
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.roundRect(2, 2, w - 4, h - 4, 30);
+                ctx.fill();
+                ctx.fillStyle = navy;
+                ctx.beginPath();
+                ctx.roundRect(12, 12, w - 24, 130, 8);
+                ctx.fill();
+
+                ctx.fillStyle = "#ffffff";
+                ctx.textAlign = "center";
+                ctx.font = `bold 55px ${fontName}`;
+                ctx.fillText("T | H | A", w / 2, 85);
+                ctx.font = `bold 24px ${fontName}`;
+                ctx.textAlign = "left";
+                ctx.fillText("Asset Tag No.", 40, 125);
+                ctx.textAlign = "right";
+                ctx.fillText(formData.assetId || "-", w - 40, 125);
+
+                const qrImg = new Image();
+                qrImg.src = qrBase64;
+                qrImg.onload = () => {
+                    ctx.drawImage(qrImg, w / 2 - 110, 180, 220, 220); 
+                    ctx.fillStyle = "#A5A5A5";
+                    ctx.textAlign = "center";
+                    ctx.font = `400 18px ${fontName}`;
+                    ctx.fillText("Property of THA Asset Management", w / 2, 430);
+
+                    let installDate = formData.installDate || "-";
+                    if (installDate.indexOf('-') > -1 && installDate.length === 10) {
+                        let parts = installDate.split('-');
+                        installDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    }
+
+                    const listItems = [
+                        { label: "Item Name :", value: formData.productName || "-" },
+                        { label: "Model :", value: formData.model || "-" },
+                        { label: "S/N :", value: formData.serialNumber || "-" },
+                        { label: "Location :", value: formData.location || "-" },
+                        { label: "Install date :", value: installDate } 
+                    ];
+
+                    let startY = 510;
+                    const rowHeight = 70;
+
+                    listItems.forEach((item, index) => {
+                        const y = startY + (index * rowHeight);
+                        ctx.textAlign = "left";
+                        ctx.fillStyle = navy;
+                        ctx.font = `bold 24px ${fontName}`;
+                        ctx.fillText(item.label, 40, y);
+
+                        ctx.textAlign = "right";
+                        ctx.fillStyle = "#1a1a1a";
+                        let valText = item.value;
+                        let maxTextWidth = 260; 
+                        
+                        ctx.font = `500 24px ${fontName}`;
+                        if (ctx.measureText(valText).width <= maxTextWidth) {
+                            ctx.fillText(valText, w - 40, y);
+                        } else {
+                            ctx.font = `500 20px ${fontName}`; 
+                            let line1 = "", line2 = "";
+                            for (let i = 0; i < valText.length; i++) {
+                                let testLine = line1 + valText[i];
+                                if (ctx.measureText(testLine).width > maxTextWidth) {
+                                    line2 = valText.substring(i);
+                                    break;
+                                } else { line1 = testLine; }
+                            }
+                            if (ctx.measureText(line2).width > maxTextWidth) {
+                                let tempLine2 = "";
+                                for (let i = 0; i < line2.length; i++) {
+                                    let testLine2 = tempLine2 + line2[i] + "...";
+                                    if (ctx.measureText(testLine2).width > maxTextWidth) break;
+                                    tempLine2 += line2[i];
+                                }
+                                line2 = tempLine2 + "...";
+                            }
+                            ctx.fillText(line1, w - 40, y - 12); 
+                            ctx.fillText(line2, w - 40, y + 12); 
+                        }
+                        ctx.strokeStyle = "#E8E8E8";
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.moveTo(40, y + 15);
+                        ctx.lineTo(w - 40, y + 15);
+                        ctx.stroke();
+                    });
+                    resolve(true);
+                };
+                qrImg.onerror = () => { resolve(true); } // เผื่อ QR พลาด ก็ยังข้ามไปวาดตัวหนังสือได้
+            }, 200); 
+        } catch(error) {
+            reject(error);
+        }
+    });
+}
+
+// ==========================================
+// 🖨️ ระบบควบคุม UI ค้นหา (Reprint Asset Tag Control)
+// ==========================================
+
+// 🔵 1. ฟังก์ชันสั่ง เปิด/ปิด รายการ (Toggle)
+function toggleReprintList(event) {
+    if(event) event.stopPropagation();
+    const container = document.getElementById('reprintListContainer');
+    const chevron = document.getElementById('reprintChevron');
+    
+    if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        if(chevron) chevron.style.transform = 'rotate(180deg)';
+    } else {
+        hideReprintList();
+    }
+}
+
+// 🔵 2. ฟังก์ชันสั่งซ่อนรายการ (Core Hide)
+function hideReprintList() {
+    const container = document.getElementById('reprintListContainer');
+    const chevron = document.getElementById('reprintChevron');
+    if(container) container.classList.add('hidden');
+    if(chevron) chevron.style.transform = 'rotate(0deg)';
+}
+
+// 🔵 3. ระบบตรวจสอบคลิกข้างนอก (Global Click Outside)
+document.addEventListener('mousedown', function(e) {
+    const containerOuter = document.getElementById('reprintSearchContainerOuter');
+    // ถ้าคลิกนอกพื้นที่ช่องค้นหา ให้สั่งหดรายการเก็บทันที
+    if (containerOuter && !containerOuter.contains(e.target)) {
+        hideReprintList();
+    }
+});
+
+// 🔵 4. ฟังก์ชันล้างค่าช่องค้นหา (Clear Search)
+function clearReprintSearch(event) {
+    if(event) event.stopPropagation();
+    const input = document.getElementById('reprintSearchInput');
+    input.value = '';
+    document.getElementById('clearReprintBtn').classList.add('hidden');
+    renderReprintList(globalAssetDataForReprint);
+    hideReprintList(); // ล้างเสร็จให้หดเก็บ
+    input.focus();
+}
+
+// 🔵 5. ระบบกรองข้อมูล (Filter Logic)
+function filterReprintList(val) {
+    const clearBtn = document.getElementById('clearReprintBtn');
+    const container = document.getElementById('reprintListContainer');
+    const chevron = document.getElementById('reprintChevron');
+
+    if(val) {
+        clearBtn.classList.remove('hidden');
+    } else {
+        clearBtn.classList.add('hidden');
+    }
+    
+    // พิมพ์แล้วให้เด้งรายการออกมาทันที
+    if(container) container.classList.remove('hidden');
+    if(chevron) chevron.style.transform = 'rotate(180deg)';
+    
+    let lower = val.toLowerCase();
+    let filtered = globalAssetDataForReprint.filter(item => 
+        item.assetId.toLowerCase().includes(lower) || 
+        item.productName.toLowerCase().includes(lower) ||
+        (item.serialNumber && item.serialNumber.toLowerCase().includes(lower))
+    );
+    renderReprintList(filtered);
+}
+
+// 🔵 6. ระบบวาดรายการ Rich Card (UI Rendering)
+function renderReprintList(data) {
+    const list = document.getElementById('reprintCustomList');
+    if(!list) return;
+    
+    list.innerHTML = '';
+    
+    if(data.length === 0) {
+        list.innerHTML = '<li class="p-4 text-center text-gray-400 font-medium italic">ไม่พบข้อมูลสินทรัพย์...</li>';
+        return;
+    }
+
+    data.forEach(item => {
+        let li = document.createElement('li');
+        li.className = "p-3 border-b border-blue-50 hover:bg-blue-100 cursor-pointer transition-all active:bg-blue-200";
+        
+        // เมื่อเลือกรายการ
+        li.onclick = (e) => {
+            e.stopPropagation();
+            const input = document.getElementById('reprintSearchInput');
+            input.value = `${item.assetId} : ${item.productName}`;
+            document.getElementById('clearReprintBtn').classList.remove('hidden');
+            hideReprintList(); // เลือกเสร็จหดเก็บ
+        };
+
+        // โครงสร้าง Rich Card ตามรูป 15
+        li.innerHTML = `
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-[#2563eb] font-black text-sm">${item.assetId}</span>
+                <span class="bg-blue-100 text-[#2563eb] text-[11px] px-2.5 py-0.5 rounded-full font-bold">${item.location || '-'}</span>
+            </div>
+            <div class="font-bold text-gray-800 text-sm leading-tight">${item.productName}</div>
+            <div class="text-gray-400 text-[11px] mt-1">รุ่น: ${item.model || '-'} | S/N: ${item.serialNumber || '-'}</div>
+        `;
+        list.appendChild(li);
+    });
+}
+
+</script>
