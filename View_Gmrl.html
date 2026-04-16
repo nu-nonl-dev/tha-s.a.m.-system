@@ -1,0 +1,236 @@
+<div id="view-gmrl" class="app-view hidden w-full pb-10">
+  
+  <div class="w-full text-center mt-2 mb-4 px-1">
+    <h2 class="text-2xl sm:text-3xl font-bold text-[#0C3175] inline-flex items-center justify-center gap-2">
+      <span class="text-3xl drop-shadow-md">🏢</span> บันทึกงานซ่อมทั่วไป (GMRL)
+    </h2>
+    <p class="text-sm font-bold text-gray-500 mt-1 uppercase tracking-widest" >Facility Maintenance Log</p>
+  </div>
+
+  
+  <style>
+    /* 1. สไตล์ช่องกรอกพื้นฐาน - ปรับพื้นหลังเป็นสีขาวทั้งหมดตามสั่ง */
+    #gmrlForm .wave-group .wave-textarea { 
+      background-color: #ffffff !important; 
+      resize: none; 
+      min-height: 52px; 
+      height: 52px; 
+      overflow-y: hidden; 
+      display: block; 
+      line-height: 1.5; 
+      padding-top: 18px; 
+      padding-bottom: 10px; 
+    }
+    
+    #gmrlForm .wave-input {
+      background-color: #ffffff !important;
+    }
+
+    /* 2. สีตัวอักษรในช่อง (สีฟ้าเมื่อมีการพิมพ์) */
+    #gmrlForm .wave-input,
+    #gmrlForm .wave-textarea { 
+      color: #2563eb !important; 
+      font-weight: 700 !important; 
+      border: 1px solid #e5e7eb;
+    }
+
+    /* แก้ไข Chrome Autofill ให้เป็นสีฟ้าตามระบบ */
+    #gmrlForm .wave-input:-webkit-autofill,
+    #gmrlForm .wave-textarea:-webkit-autofill { 
+      -webkit-box-shadow: 0 0 0 30px #ffffff inset !important; 
+      transition: background-color 5000s ease-in-out 0s; 
+      -webkit-text-fill-color: #2563eb !important; 
+      font-weight: 700 !important; 
+    }
+    
+    /* 3. เอฟเฟกต์ Label: แก้ปัญหากรอบสีขาวทับข้อความแบบเด็ดขาด */
+    #gmrlForm .wave-label { 
+      position: absolute;
+      top: 14px;
+      left: 12px;
+      color: #9ca3af; /* สีเทาตอนว่าง */
+      background-color: transparent; /* ล้างพื้นหลังตอนว่าง จะได้ไม่บังข้อความ */
+      padding: 0 6px; 
+      transition: all 0.2s ease; 
+      pointer-events: none; 
+      z-index: 10;
+    }
+
+    /* เมื่อมีการ Focus หรือมีข้อมูล (ลอยขึ้นไปที่เส้นขอบ) */
+    #gmrlForm .wave-input:focus ~ .wave-label,
+    #gmrlForm .wave-input:not(:placeholder-shown) ~ .wave-label,
+    #gmrlForm .wave-textarea:focus ~ .wave-label,
+    #gmrlForm .wave-textarea:not(:placeholder-shown) ~ .wave-label,
+    #gmrlForm .wave-textarea.has-value ~ .wave-label { 
+      top: -8px !important; /* จัดให้อยู่กึ่งกลางเส้นขอบพอดี */
+      left: 10px;
+      font-size: 12px;
+      color: #2563eb !important; 
+      font-weight: 800; 
+      z-index: 30; /* ดันเลเยอร์ขึ้นบนสุด */
+      background-color: #ffffff; /* เปิดพื้นหลังสีขาวเพื่อบังเส้นขอบ */
+      height: 16px; /* ⚡ บังคับความสูงให้พอดีกับตัวอักษร (ไม่ย้อยลงมาทับข้อความ) */
+      line-height: 16px; 
+      border-radius: 4px;
+    }
+
+    /* 4. Animation ปุ่มและไฟวิ่ง (คงเดิมตามระบบเจ้านาย) */
+    @keyframes pulse-blue-glow-gmrl { 0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); transform: scale(1); } 50% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); transform: scale(1); } }
+    #gmrlSubmitBtn { animation: pulse-blue-glow-gmrl 2s infinite; transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+    #gmrlSubmitBtn:active { transform: scale(0.94) !important; animation: none; }
+
+    @keyframes run-arrow-left-g { 0%, 100% { transform: translateX(-4px) scale(0.9); opacity: 0.3; } 50% { transform: translateX(4px) scale(1.1); opacity: 1; text-shadow: 0 0 12px rgba(255,255,255,1); } }
+    @keyframes run-arrow-right-g { 0%, 100% { transform: translateX(4px) scale(0.9); opacity: 0.3; } 50% { transform: translateX(-4px) scale(1.1); opacity: 1; text-shadow: 0 0 12px rgba(255,255,255,1); } }
+    .arr-left span { display: inline-block; animation: run-arrow-left-g 0.7s infinite ease-in-out; }
+    .arr-left span:nth-child(1) { animation-delay: 0s; } .arr-left span:nth-child(2) { animation-delay: 0.15s; }
+    .arr-right span { display: inline-block; animation: run-arrow-right-g 0.7s infinite ease-in-out; }
+    .arr-right span:nth-child(1) { animation-delay: 0.15s; } .arr-right span:nth-child(2) { animation-delay: 0s; }
+
+    /* แก้ Dropdown สีใส */
+    #gmrlForm select.wave-input:invalid { color: transparent !important; -webkit-text-fill-color: transparent !important; }
+    #gmrlForm select.wave-input option { color: #1f2937 !important; -webkit-text-fill-color: initial !important; }
+    #gmrlForm select.wave-input:valid { color: #2563eb !important; -webkit-text-fill-color: #2563eb !important; font-weight: 700 !important; }
+  </style>
+
+  <form id="gmrlForm" class="w-full bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col gap-1">
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+      <div class="wave-group !mb-0 relative">
+        <input type="date" id="gmrlDate" class="wave-input bg-transparent cursor-pointer pr-[85px]" placeholder=" " onclick="this.showPicker()" oninput="handleDateInput(this)" onfocus="if(typeof toggleDateIcons === 'function') toggleDateIcons(this, true)" onblur="if(typeof toggleDateIcons === 'function') toggleDateIcons(this, false)">
+        <label class="wave-label">วันที่เริ่มทำ (Start Date)</label>
+        <div class="absolute right-1.5 top-1/2 transform -translate-y-1/2 flex items-center gap-1 z-10 pointer-events-none">
+          <button type="button" id="gmrlDateClearBtn" onclick="if(typeof clearDateInput === 'function') clearDateInput(this, 'gmrlDate')" class="hidden pointer-events-auto w-8 h-8 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700 rounded-full flex items-center justify-center transition-all shadow-sm border border-red-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          <div class="relative flex items-center justify-center w-8 h-8">
+            <div id="gmrlDateCalIcon" class="absolute inset-0 flex items-center justify-center text-[#2563eb] transition-all duration-300">
+              <svg class="w-6 h-6 text-[#2563eb] animate-ping opacity-75 absolute" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              <svg class="w-6 h-6 text-[#2563eb] relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <div id="gmrlDateChevronIcon" class="absolute inset-0 hidden flex items-center justify-center text-[#2563eb] transition-all duration-300"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"></path></svg></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wave-group !mb-0 relative">
+        <input type="date" id="gmrlEndDate" class="wave-input bg-transparent cursor-pointer pr-[85px]" placeholder=" " onclick="this.showPicker()" oninput="handleDateInput(this)" onfocus="if(typeof toggleDateIcons === 'function') toggleDateIcons(this, true)" onblur="if(typeof toggleDateIcons === 'function') toggleDateIcons(this, false)">
+        <label class="wave-label">วันที่ทำเสร็จ (End Date)</label>
+        <div class="absolute right-1.5 top-1/2 transform -translate-y-1/2 flex items-center gap-1 z-10 pointer-events-none">
+          <button type="button" id="gmrlEndDateClearBtn" onclick="if(typeof clearDateInput === 'function') clearDateInput(this, 'gmrlEndDate')" class="hidden pointer-events-auto w-8 h-8 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700 rounded-full flex items-center justify-center transition-all shadow-sm border border-red-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          <div class="relative flex items-center justify-center w-8 h-8">
+            <div id="gmrlEndDateCalIcon" class="absolute inset-0 flex items-center justify-center text-[#2563eb] transition-all duration-300">
+              <svg class="w-6 h-6 text-[#2563eb] animate-ping opacity-75 absolute" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              <svg class="w-6 h-6 text-[#2563eb] relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <div id="gmrlEndDateChevronIcon" class="absolute inset-0 hidden flex items-center justify-center text-[#2563eb] transition-all duration-300"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"></path></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+      <div class="flex flex-col justify-end">
+        <div class="wave-group relative !mb-0 smart-dropdown-container" id="gmrlCategoryContainer" data-allow-other="true">
+          <input type="text" id="gmrlCategoryDisplay" class="wave-input bg-transparent pr-16" placeholder=" " autocomplete="off">
+          <label class="wave-label">หมวดหมู่งาน</label>
+          <input type="hidden" id="gmrlCategory">
+          <button type="button" id="gmrlCategory_toggleBtn" onclick="toggleSmartDropdown('gmrlCategory')" class="absolute right-2 top-[12px] w-7 h-7 flex items-center justify-center text-[#2563eb] bg-blue-50 hover:bg-blue-100 rounded-full transition-all z-10" style="animation: pulse-blue-glow-gmrl 2s infinite;"><svg id="gmrlCategory_arrowIcon" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg></button>
+          <button type="button" id="clear_gmrlCategory_dropdown" class="input-clear-btn hidden absolute right-10 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-full flex items-center justify-center transition-all z-20" onclick="clearSmartDropdown('gmrlCategory')"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          <ul id="gmrlCategoryCustomList" class="smart-dropdown-list z-50"></ul>
+        </div>
+        <div class="wave-group relative hidden !mt-1" id="new_gmrlCategory">
+          <textarea id="new_gmrlCategory_input" class="wave-textarea wave-input bg-white pr-8" rows="1" placeholder=" " oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'; toggleInputClearBtn(this)"></textarea>
+          <label class="wave-label">ระบุหมวดหมู่งานอื่นๆ</label>
+          <button type="button" class="input-clear-btn hidden absolute right-2 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="wave-group relative !mb-0">
+        <input type="text" id="gmrlType" name="gmrlType" autocomplete="on" class="wave-input bg-transparent pr-10" placeholder=" " oninput="toggleInputClearBtn(this)">
+        <label class="wave-label">ประเภทของงาน</label>
+        <button type="button" class="input-clear-btn hidden absolute right-2 top-[12px] w-7 h-7 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+    </div>
+
+    <div class="wave-group relative !mb-0">
+      <input type="text" id="gmrlLocation" name="gmrlLocation" autocomplete="on" class="wave-input bg-transparent pr-10" placeholder=" " oninput="toggleInputClearBtn(this)">
+      <label class="wave-label">จุดที่ดำเนินการ/พื้นที่ (Location)</label>
+      <button type="button" class="input-clear-btn hidden absolute right-2 top-[12px] w-7 h-7 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+    </div>
+
+    <div class="wave-group relative !mb-0">
+       <textarea id="gmrlDetails" rows="1" class="wave-textarea wave-input bg-transparent pr-10" placeholder=" " oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'; toggleInputClearBtn(this)"></textarea>
+       <label class="wave-label">รายละเอียดงานที่ทำ</label>
+       <button type="button" class="input-clear-btn hidden absolute right-2 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+      <div class="wave-group relative !mb-0">
+        <input type="number" id="gmrlCost" class="wave-input bg-transparent pr-10" placeholder=" " min="0" step="0.01" oninput="toggleInputClearBtn(this)">
+        <label class="wave-label">ค่าใช้จ่าย/ซ่อม (บาท) ถ้ามี</label>
+        <button type="button" class="input-clear-btn hidden absolute right-2 top-[12px] w-7 h-7 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+
+      <div class="flex flex-col justify-end">
+        <div class="wave-group relative !mb-0 smart-dropdown-container" id="gmrlTechnicianContainer" data-allow-other="true">
+          <input type="text" id="gmrlTechnicianDisplay" class="wave-input bg-transparent pr-16" placeholder=" " autocomplete="off">
+          <label class="wave-label">ช่างที่ดำเนินการ</label>
+          <input type="hidden" id="gmrlTechnician">
+          <button type="button" id="gmrlTechnician_toggleBtn" onclick="toggleSmartDropdown('gmrlTechnician')" class="absolute right-2 top-[12px] w-7 h-7 flex items-center justify-center text-[#2563eb] bg-blue-50 hover:bg-blue-100 rounded-full transition-all z-10" style="animation: pulse-blue-glow-gmrl 2s infinite;"><svg id="gmrlTechnician_arrowIcon" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg></button>
+          <button type="button" id="clear_gmrlTechnician_dropdown" class="input-clear-btn hidden absolute right-10 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-full flex items-center justify-center transition-all z-20" onclick="clearSmartDropdown('gmrlTechnician')"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          <ul id="gmrlTechnicianCustomList" class="smart-dropdown-list z-50"></ul>
+        </div>
+        <div class="wave-group relative hidden !mt-1" id="new_gmrlTechnician">
+          <textarea id="new_gmrlTechnician_input" class="wave-textarea wave-input bg-white pr-8" rows="1" placeholder=" " oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'; toggleInputClearBtn(this)"></textarea>
+          <label class="wave-label">ระบุชื่อช่างใหม่</label>
+          <button type="button" class="input-clear-btn hidden absolute right-2 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+      <div class="flex flex-col justify-end">
+        <div class="wave-group relative !mb-0 smart-dropdown-container" id="gmrlIssuerContainer" data-allow-other="true">
+          <input type="text" id="gmrlIssuerDisplay" class="wave-input bg-transparent pr-16" placeholder=" " autocomplete="off">
+          <label class="wave-label">ผู้ทำรายการ (Issuer)</label>
+          <input type="hidden" id="gmrlIssuer">
+          <button type="button" id="gmrlIssuer_toggleBtn" onclick="toggleSmartDropdown('gmrlIssuer')" class="absolute right-2 top-[12px] w-7 h-7 flex items-center justify-center text-[#2563eb] bg-blue-50 hover:bg-blue-100 rounded-full transition-all z-10" style="animation: pulse-blue-glow-gmrl 2s infinite;"><svg id="gmrlIssuer_arrowIcon" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg></button>
+          <button type="button" id="clear_gmrlIssuer_dropdown" class="input-clear-btn hidden absolute right-10 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-full flex items-center justify-center transition-all z-20" onclick="clearSmartDropdown('gmrlIssuer')"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          <ul id="gmrlIssuerCustomList" class="smart-dropdown-list z-50"></ul>
+        </div>
+        <div class="wave-group relative hidden !mt-1" id="new_gmrlIssuer">
+          <textarea id="new_gmrlIssuer_input" class="wave-textarea wave-input bg-white pr-8" rows="1" placeholder=" " oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'; toggleInputClearBtn(this)"></textarea>
+          <label class="wave-label">พิมพ์ชื่อผู้ทำรายการใหม่</label>
+          <button type="button" class="input-clear-btn hidden absolute right-2 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="wave-group relative !mb-0">
+        <textarea id="gmrlRemarks" rows="1" class="wave-textarea wave-input bg-transparent pr-10" placeholder=" " oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'; toggleInputClearBtn(this)"></textarea>
+        <label class="wave-label">หมายเหตุ</label>
+        <button type="button" class="input-clear-btn hidden absolute right-2 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-1">
+      <div class="bg-[#f8faff] p-4 rounded-2xl border-2 border-dashed border-[#2563eb]/40 shadow-sm transition-all hover:border-[#2563eb] hover:bg-[#f0f4ff] relative">
+        <label class="block text-xs font-bold text-[#2563eb] mb-2 flex items-center gap-1.5">📸 รูปถ่ายงานซ่อม (ถ้ามี)</label>
+        <input type="file" id="gmrlImage" accept="image/*" onchange="toggleClearButton('gmrlImage')" class="w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-100 file:text-[#2563eb] hover:file:bg-blue-200 border-2 border-blue-200 focus:border-[#2563eb] shadow-md rounded-lg bg-white cursor-pointer pr-10 outline-none">
+        <button type="button" id="clear_gmrlImage" onclick="clearFile('gmrlImage')" class="hidden absolute right-6 bottom-6 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition-colors shadow-sm z-20 focus:outline-none"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+
+      <div class="bg-[#f8faff] p-4 rounded-2xl border-2 border-dashed border-[#2563eb]/40 shadow-sm transition-all hover:border-[#2563eb] hover:bg-[#f0f4ff] relative">
+        <label class="block text-xs font-bold text-[#2563eb] mb-2 flex items-center gap-1.5">📄 แนบบิล/เอกสาร (ถ้ามี)</label>
+        <input type="file" id="gmrlDocument" accept="image/*,application/pdf" onchange="toggleClearButton('gmrlDocument')" class="w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-100 file:text-[#2563eb] hover:file:bg-blue-200 border-2 border-blue-200 focus:border-[#2563eb] shadow-md rounded-lg bg-white cursor-pointer pr-10 outline-none">
+        <button type="button" id="clear_gmrlDocument" onclick="clearFile('gmrlDocument')" class="hidden absolute right-6 bottom-6 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition-colors shadow-sm z-20 focus:outline-none"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <button type="button" id="gmrlSubmitBtn" onclick="submitGmrlForm()" class="w-full text-white rounded-xl px-6 py-4 font-bold text-lg flex justify-center items-center gap-4 shadow-lg transition-all">
+        <span class="arr-left tracking-tighter opacity-90"><span class="text-xl">&gt;</span><span class="text-xl">&gt;</span></span>
+        <span class="relative z-10">บันทึกงานซ่อม (GMRL)</span>
+        <span class="arr-right tracking-tighter opacity-90"><span class="text-xl">&lt;</span><span class="text-xl">&lt;</span></span>
+      </button>
+    </div>
+
+  </form>
+</div>
