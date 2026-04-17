@@ -1,0 +1,1063 @@
+<div id="view-dashboard" class="app-view w-full pb-10" style="display: none;">
+  
+  <style>
+    /* --- Base Card & Layout --- */
+    .run-light-card { --border-w: 2px; position: relative; z-index: 1; transition: all 0.3s ease; }
+    .rlc-light { position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(90deg, transparent 0%, var(--line-color) 70%, #ffffff 100%); animation: rlc-sweep 2.5s linear infinite; z-index: -2; opacity: 0.8; }
+    .rlc-inner { position: absolute; inset: var(--border-w); z-index: -1; }
+    @keyframes rlc-sweep { 0% { left: -40%; } 100% { left: 100%; } }
+    
+    .light-amber { --line-color: #f59e0b; background-color: rgba(254, 243, 199, 0.5); overflow: hidden; }
+    .light-red { --line-color: #ef4444; background-color: rgba(254, 226, 226, 0.5); overflow: hidden; }
+    .light-blue { --line-color: #3b82f6; background-color: rgba(219, 234, 254, 0.5); overflow: hidden; }
+    .light-cyan { --line-color: #06b6d4; background-color: rgba(207, 250, 254, 0.5); overflow: hidden; }
+    .light-emerald { --line-color: #10b981; background-color: rgba(209, 250, 229, 0.5); overflow: hidden; }
+    .light-brand { --line-color: #bfdbfe; background-color: rgba(255,255,255, 0.1); } 
+
+    @keyframes pulse-blue-glow { 0%, 100% { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); border-color: #bfdbfe; } 50% { box-shadow: 0 0 12px #3b82f6; border-color: #60a5fa; } }
+    .animate-sync-glow { animation: pulse-blue-glow 2s infinite focus; }
+
+    .prog-light-bar { position: absolute; top: 0; bottom: 0; width: 60%; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%); }
+    .prog-light-bar::after { content: ''; position: absolute; right: 0; top: 0; width: 15px; height: 100%; background: white; box-shadow: 0 0 15px 2px white; border-radius: 50%; opacity: 0.9; }
+
+    @keyframes champion-aura { 0%, 100% { border-color: #3b82f6; box-shadow: 0 0 5px rgba(59, 130, 246, 0.2); } 50% { border-color: #f59e0b; box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); } }
+    .champion-rank { animation: champion-aura 3s infinite; transform: scale(1.02); background: linear-gradient(to right, #ffffff, #eff6ff) !important; border-width: 2px !important; }
+
+    /* CSS พิเศษสำหรับ GMRL */
+    .gmrl-champion { animation: champion-aura 3s infinite; transform: scale(1.02); background: linear-gradient(to right, #ffffff, #f0fdf4) !important; border-color: #10b981 !important; border-width: 2px !important; }
+    @keyframes ring-bell { 0% { transform: rotate(0); } 10% { transform: rotate(15deg); } 20% { transform: rotate(-15deg); } 30% { transform: rotate(10deg); } 40% { transform: rotate(-10deg); } 50% { transform: rotate(5deg); } 60% { transform: rotate(-5deg); } 70% { transform: rotate(0); } 100% { transform: rotate(0); } }
+    .animate-bell { animation: ring-bell 2s ease-in-out infinite; transform-origin: top center; }
+
+    /* ===================================================================== */
+    /* ✨ Action พิเศษสำหรับตัวเลข สินทรัพย์รวม ตรงกลางกราฟเกือกม้า ✨         */
+    /* ===================================================================== */
+    @keyframes asset-pop-glow {
+        0% { transform: scale(0.5); opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
+        60% { transform: scale(1.1); text-shadow: 0 0 20px rgba(255,255,255,0.8); }
+        100% { transform: scale(1); opacity: 1; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    }
+    .animate-asset-total {
+        animation: asset-pop-glow 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    
+    /* จังหวะหัวใจเต้นให้สมจริง เร็วขึ้น และมีพลัง (ตุ้บ-ตุ้บ 1.5s) */
+    @keyframes heartbeat-glow {
+        0% { transform: scale(1); text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        15% { transform: scale(1.08); text-shadow: 0 0 25px rgba(255,255,255,0.9); }
+        30% { transform: scale(1); text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        45% { transform: scale(1.08); text-shadow: 0 0 25px rgba(255,255,255,0.9); }
+        60%, 100% { transform: scale(1); text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    }
+    .heartbeat-text {
+        animation: heartbeat-glow 1.5s infinite;
+    }
+
+    /* J.A.R.V.I.S. PRO: CSS กันแสงกวาดทะลุกระจก */
+    .glass-sweep-border {
+        position: absolute; inset: 0; pointer-events: none; z-index: 0;
+        padding: 2.5px; 
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        border-radius: inherit;
+        overflow: hidden;
+    }
+
+    /* CSS Wave Label */
+    .dash-textarea { background-color: transparent !important; resize: none; min-height: 52px; height: 52px; overflow-y: hidden; display: block; line-height: 1.5; padding-top: 18px; padding-bottom: 10px; border: none !important; outline: none !important; }
+    .dash-textarea.has-value { color: #2563eb !important; font-weight: 900 !important; }
+    .dash-textarea:-webkit-autofill, .dash-textarea:-webkit-autofill:hover, .dash-textarea:-webkit-autofill:focus, .dash-textarea:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 30px transparent inset !important; transition: background-color 5000s ease-in-out 0s; -webkit-text-fill-color: #2563eb !important; font-weight: 900 !important; }
+
+    .wave-label { position: absolute; left: 14px; top: 14px; display: flex; pointer-events: none; z-10; }
+    .wave-label span {
+        transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55), color 0.3s, background-color 0.3s;
+        display: inline-block; transform-origin: bottom; 
+        padding: 2px 1px; margin: 0 -1px; border-radius: 3px; background-color: transparent;
+    }
+    
+    .dash-input-container.is-focused .wave-label span,
+    .dash-input-container.has-value .wave-label span {
+        transform: translateY(-28px) scale(0.85); 
+        color: #2563eb; font-weight: 800; background-color: #ffffff;
+    }
+
+    /* ควบคุมจังหวะปุ่มสลับร่าง */
+    #dashDropdownBtn, #dashClearBtn, #dashQrBtn, #dashMicBtn { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); position: absolute; inset: 0; }
+    #dashDropdownBtn { opacity: 1; transform: scale(1); pointer-events: auto; visibility: visible; }
+    #dashDropdownBtn svg { transition: transform 0.4s; transform: rotate(0deg); }
+    #dashClearBtn { opacity: 0; transform: scale(0.5); pointer-events: none; visibility: hidden; }
+    #dashQrBtn { opacity: 1; transform: scale(1) rotate(0deg); pointer-events: auto; visibility: visible; }
+    #dashMicBtn { opacity: 0; transform: scale(0.5) rotate(-90deg); pointer-events: none; visibility: hidden; }
+
+    .dash-input-container.is-focused:not(.has-value) #dashDropdownBtn svg { transform: rotate(180deg); color: #2563eb; }
+    .dash-input-container.is-focused:not(.has-value) #dashQrBtn { opacity: 0; transform: scale(0.5) rotate(90deg); pointer-events: none; visibility: hidden; }
+    .dash-input-container.is-focused:not(.has-value) #dashMicBtn { opacity: 1; transform: scale(1) rotate(0deg); pointer-events: auto; visibility: visible; }
+
+    .dash-input-container.has-value #dashDropdownBtn { opacity: 0; transform: scale(0.5); pointer-events: none; visibility: hidden; }
+    .dash-input-container.has-value #dashClearBtn { opacity: 1; transform: scale(1); pointer-events: auto; visibility: visible; }
+    .dash-input-container.has-value #dashMicBtn { opacity: 0; transform: scale(0.5) rotate(-90deg); pointer-events: none; visibility: hidden; }
+    .dash-input-container.has-value #dashQrBtn { opacity: 1; transform: scale(1) rotate(0deg); pointer-events: auto; visibility: visible; }
+
+    .timeline-item { position: relative; padding-left: 2.25rem; padding-bottom: 1.5rem; }
+    .timeline-line { position: absolute; left: 9px; top: 24px; bottom: 0; width: 2px; background: linear-gradient(to bottom, rgba(147, 197, 253, 0.8) 50%, transparent 100%); z-index: 0; }
+    .timeline-item:last-child .timeline-line { display: none; }
+  </style>
+
+  <div class="w-full text-center mt-2 mb-1 px-1">
+    <h2 class="text-2xl sm:text-3xl font-bold text-[#06245C] inline-flex items-center justify-center gap-2">
+      <span class="text-3xl drop-shadow-md">📊</span> Command Center
+    </h2>
+  </div>
+
+  <div class="flex justify-end w-full mb-3 px-1">
+    <span id="lastSyncBadge" class="bg-blue-50 text-[#06245C] px-3 py-1.5 rounded-full text-[10px] font-black border border-blue-200 animate-sync-glow flex items-center gap-1.5 transition-all duration-300 hover:scale-105 hover:bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" tabindex="0" onclick="if(typeof loadDashboardData === 'function') loadDashboardData(true);">
+      
+      <span class="relative flex h-2 w-2">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+      </span>
+      
+      <span id="syncTimeText">อัปเดต: --:--</span>
+      
+    </span>
+</div>
+
+  <div id="dashboardLoading" class="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm mb-4">
+    <div class="relative w-20 h-20 flex items-center justify-center">
+      <div class="absolute inset-0 rounded-full border-t-4 border-[#04d4d4] animate-spin"></div>
+      <div class="absolute inset-2 rounded-full border-r-4 border-blue-400 animate-spin" style="animation-direction: reverse;"></div>
+      <svg class="w-10 h-10 text-[#04d4d4] relative z-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+    </div>
+    <p class="mt-6 text-[#0000FF] font-bold tracking-widest animate-pulse uppercase">S.A.M. Downloading...</p>
+  </div>
+
+  <div id="dashboardContent" class="hidden w-full space-y-4">
+    
+    <div class="bg-gradient-to-br from-[#06245C] to-[#1e3a8a] rounded-3xl p-5 shadow-xl relative overflow-hidden text-white border border-blue-800 transition-all hover:shadow-2xl">
+      <div class="absolute -right-20 -top-20 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="flex justify-between items-start mb-2 relative z-10 border-b border-white/10 pb-3">
+        <div><p class="text-sm text-blue-100 uppercase tracking-wide font-extrabold text-shadow-sm">มูลค่าสินทรัพย์รวม [ Total Value ]</p><h3 id="valTotalMoney" class="text-2xl sm:text-3xl font-black text-white mt-1 drop-shadow-md">฿0</h3></div>
+        <div class="p-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10"><svg class="w-6 h-6 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08-.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+      </div>
+      
+      <div class="flex flex-col relative z-10 mt-4">
+        <div class="relative w-full h-[280px] flex justify-center items-center bg-black/10 rounded-2xl shadow-inner border border-white/5 py-2">
+           <div id="apexRadialChart" class="w-full h-full"></div>
+           <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+              <h3 id="chartTotalCount" class="text-[60px] sm:text-[72px] font-black text-white drop-shadow-xl tracking-tighter leading-none heartbeat-text transition-all duration-300">0</h3>
+              
+              <p class="text-[11px] sm:text-[12px] text-blue-100 uppercase tracking-widest font-extrabold bg-[#06245C]/60 px-4 py-1 rounded-full backdrop-blur-md mt-1 shadow-inner border border-white/5 relative overflow-hidden">
+                 <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full" style="animation: rlc-sweep 2.5s linear infinite;"></span>
+                 สินทรัพย์รวม
+              </p>
+
+           </div>
+        </div>
+        <div id="top5Card" class="w-full mt-4 bg-white/20 rounded-3xl p-4 backdrop-blur-xl border border-white/20 shadow-2xl">
+          <p class="text-[11px] text-white font-black mb-4 uppercase tracking-widest border-b border-white/10 pb-2 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_#60a5fa]"></span> TOP 5 Category Performance</p>
+          <div id="top5List" class="space-y-3"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="flex justify-end w-full px-1 relative z-10">
+      <div class="bg-white rounded-xl shadow-md border border-blue-100 p-1.5 flex items-center gap-2 ring-1 ring-black/5 transitions-all duration-300 hover:shadow-lg hover:border-blue-200">
+        <div class="bg-blue-50 p-1 rounded-lg text-lg">📅</div>
+        <input type="month" id="globalMonthFilter" onchange="isDashboardLoaded=false; loadDashboardData();" class="text-[#06245C] text-xs font-black outline-none bg-transparent cursor-pointer pr-2 focus:ring-1 focus:ring-blue-300 rounded">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 px-1">
+        <div id="cardPmDueSoon" class="run-light-card rounded-3xl light-amber h-[100px] shadow-sm"><div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div><div class="relative z-10 p-4 h-full flex flex-col justify-between"><div class="flex justify-between items-start text-[10px] font-black text-amber-700 uppercase leading-none"><span>ใกล้รอบ PM</span><span class="text-xl">🛠️</span></div><div class="flex items-end justify-between"><h3 id="valPmDueSoon" class="text-4xl font-black text-amber-500 leading-none drop-shadow-sm">0</h3><span class="text-[10px] font-bold text-amber-600 mb-0.5">* ใน 7 วัน</span></div></div></div>
+        <div id="cardPmOverdue" class="run-light-card rounded-3xl light-red h-[100px] shadow-sm"><div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div><div class="relative z-10 p-4 h-full flex flex-col justify-between"><div class="flex justify-between items-start text-[10px] font-black text-red-800 uppercase leading-none"><span>เลยระยะ PM</span><span class="text-xl">🚨</span></div><div class="flex items-end justify-between"><h3 id="valPmOverdue" class="text-4xl font-black text-red-600 leading-none drop-shadow-sm">0</h3><span class="text-[10px] font-bold text-red-700 mb-0.5">รายการ</span></div></div></div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 px-1 mt-3">
+        <div id="cardBorrowed" class="run-light-card rounded-3xl light-blue h-[100px] shadow-sm"><div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div><div class="relative z-10 p-4 h-full flex flex-col justify-between"><div class="flex justify-between items-start text-[10px] font-black text-blue-800 uppercase leading-none"><span>กำลังถูกยืม</span><span class="text-xl">🔄</span></div><div class="flex items-end justify-between"><h3 id="valBorrowed" class="text-4xl font-black text-blue-600 leading-none drop-shadow-sm">0</h3><span class="text-[10px] font-bold text-blue-700 mb-0.5">รายการ</span></div></div></div>
+        <div id="cardOverdueReturn" class="run-light-card rounded-3xl light-red h-[100px] shadow-sm"><div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div><div class="relative z-10 p-4 h-full flex flex-col justify-between"><div class="flex justify-between items-start text-[10px] font-black text-red-800 uppercase leading-none"><span>คืนเกินกำหนด</span><span class="text-xl">⏰</span></div><div class="flex items-end justify-between"><h3 id="valOverdueReturn" class="text-4xl font-black text-red-600 leading-none drop-shadow-sm">0</h3><span class="text-[10px] font-bold text-red-700 mb-0.5">รายการ</span></div></div></div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 px-1 mt-3">
+      <div id="cardCost" class="run-light-card rounded-3xl light-cyan h-[100px] shadow-sm"><div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div><div class="relative z-10 p-4 h-full flex flex-col justify-between"><div class="flex justify-between items-start text-[10px] font-black text-cyan-800 uppercase leading-none"><span>ค่าซ่อมบำรุง[รวม]</span><span class="text-xl">💰</span></div><div class="flex items-end justify-between"><h3 id="valCost" class="text-2xl sm:text-3xl font-black text-cyan-600 leading-none truncate drop-shadow-sm">฿0</h3><span class="text-[10px] font-bold text-cyan-700 mb-0.5">บาท</span></div></div></div>
+      <div id="cardTransInOut" class="run-light-card rounded-3xl light-emerald h-[100px] shadow-sm"><div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div><div class="relative z-10 p-4 h-full flex flex-col justify-between"><div class="flex justify-between items-start text-[10px] font-black text-emerald-800 uppercase leading-none"><span>โอนย้าย เข้า/ออก</span><span class="text-xl">🔀</span></div><div class="flex items-end justify-between"><h3 class="text-2xl font-black text-gray-800 leading-none drop-shadow-sm"><span id="valTransIn" class="text-emerald-500">0</span><span class="text-gray-300 mx-1">/</span><span id="valTransOut" class="text-orange-500">0</span></h3><span class="text-[10px] font-bold text-emerald-700 mb-0.5">รายการ</span></div></div></div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-3 px-1 mt-3">
+    <div id="cardGmrlPending" onclick="openGmrlPendingModal()" class="run-light-card rounded-3xl light-amber h-[100px] shadow-md cursor-pointer transition-transform hover:-translate-y-1 group relative">
+        <div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div>
+        
+        <div class="relative z-10 p-4 sm:px-5 h-full flex items-center justify-between">
+            <div class="flex-1 flex flex-col justify-center">
+                <div class="text-[13px] sm:text-sm font-black text-amber-700 uppercase leading-none mb-2.5 flex items-center gap-2">
+                    <span>ซ่อมทั่วไป (GMRL ค้าง)</span>
+                    <span class="text-xl animate-bell">🔔</span>
+                </div>
+                
+                <div class="flex items-start">
+                    <span class="relative inline-flex items-center justify-center px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[11px] font-black rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)] overflow-hidden group-hover:from-amber-400 group-hover:to-orange-400">
+                        <span class="absolute inset-0 rounded-full bg-white animate-ping opacity-20"></span>
+                        <span class="relative z-10 flex items-center gap-1.5">คลิกเพื่อปิดงานด่วน <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"></path></svg></span>
+                    </span>
+                </div>
+            </div>
+            
+            <div class="flex flex-col items-end justify-center mr-1">
+               <div class="flex items-baseline gap-1.5">
+                   <h3 id="valGmrlPending" class="text-5xl font-black text-amber-500 leading-none drop-shadow-sm group-hover:scale-110 transition-transform">0</h3>
+                   <span class="text-[11px] font-bold text-amber-600/80 mb-1">รายการ</span>
+               </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <div class="run-light-card rounded-3xl light-blue overflow-hidden shadow-lg transitions-all duration-300 hover:shadow-xl mt-4">
+        <div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div>
+        <div class="relative z-10 p-5">
+          <h3 class="text-sm font-extrabold text-[#06245C] mb-5 flex items-center gap-2.5 uppercase tracking-wide border-b pb-3 border-gray-100"><span class="text-xl">⚙️</span> Top Performance [ซ่อม / PM.]</h3>
+          <div id="techLeaderboard" class="space-y-5"></div>
+        </div>
+    </div>
+
+    <div class="run-light-card rounded-3xl light-emerald overflow-hidden shadow-lg transitions-all duration-300 hover:shadow-xl mt-4">
+        <div class="rlc-light"></div><div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div>
+        <div class="relative z-10 p-5">
+          <h3 class="text-sm font-extrabold text-emerald-900 mb-5 flex items-center gap-2.5 uppercase tracking-wide border-b pb-3 border-emerald-100"><span class="text-xl">🏢</span> Top Performance [ซ่อมทั่วไป GMRL]</h3>
+          <div id="gmrlTechLeaderboard" class="space-y-5"></div>
+        </div>
+    </div>
+
+    <div class="run-light-card rounded-3xl overflow-hidden shadow-lg transitions-all duration-300 hover:shadow-xl mt-4" style="--line-color: #c084fc;">
+    <div class="rlc-light"></div>
+    <div class="rlc-inner bg-white" style="border-radius: calc(1.5rem - 2px);"></div>
+    
+    <div class="relative z-10 p-5">
+        <h3 class="text-sm font-extrabold text-[#06245C] mb-5 flex items-center gap-2.5 uppercase tracking-wide border-b pb-3 border-gray-100">
+            <span class="text-xl drop-shadow-[0_0_8px_#c084fc]">🏆</span>
+            TOP 10 TYPE [งานซ่อมทั่วไป GMRL]
+        </h3>
+        
+        <div id="gmrlTop10TypesList" class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5">
+            </div>
+    </div>
+</div>
+
+    <div class="relative mt-4 z-40 rounded-3xl shadow-lg transition-all duration-300 bg-gradient-to-b from-white/60 to-white/20 border border-white/50" style="backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
+        <div class="glass-sweep-border rounded-3xl"><div class="rlc-light" style="--line-color: #93c5fd;"></div></div>
+        
+        <div class="relative z-10 p-4 sm:p-5">
+          <h3 class="text-sm font-extrabold text-[#06245C] mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <span class="p-1.5 bg-blue-100 text-brandBlue rounded-lg shadow-inner">🔍</span> ตรวจสอบประวัติ ซ่อม/PM.
+          </h3>
+          
+          <div class="relative z-50 w-full">
+            <div id="dashInputWrap" class="dash-input-container relative !mb-0 transition-all focus-within:ring-2 focus-within:ring-blue-400 bg-white border border-blue-300 rounded-xl shadow-sm"> 
+              
+              <textarea id="dashSearchId" required autocomplete="off"
+                        class="dash-textarea w-full font-black text-[#06245C] pr-[85px] px-4" 
+                        rows="1" placeholder=" "
+                        onclick="document.getElementById('dashInputWrap').classList.add('is-focused'); renderDashDropdown(this.value);"
+                        onfocus="document.getElementById('dashInputWrap').classList.add('is-focused'); renderDashDropdown(this.value);"
+                        onblur="setTimeout(() => { document.getElementById('dashInputWrap').classList.remove('is-focused'); }, 200)"
+                        oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'; 
+                                 if(this.value.trim() !== '') { this.classList.add('has-value'); document.getElementById('dashInputWrap').classList.add('has-value'); } 
+                                 else { this.classList.remove('has-value'); document.getElementById('dashInputWrap').classList.remove('has-value'); hideDashHistory(); }
+                                 renderDashDropdown(this.value);"></textarea>
+              
+              <label id="animatedWaveLabel" class="wave-label font-bold text-gray-400">รหัส / สแกน QR เพื่อดูประวัติ</label>
+              
+              <div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-20">
+                <div class="relative w-8 h-8">
+                  <button type="button" id="dashDropdownBtn" onclick="toggleDashDropdown()" class="absolute inset-0 bg-white border border-gray-200 text-gray-400 hover:text-brandBlue rounded-lg shadow-sm flex items-center justify-center focus:outline-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
+                  </button>
+                  <button type="button" id="dashClearBtn" onclick="clearDashSearch()" class="absolute inset-0 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg shadow-sm flex items-center justify-center focus:outline-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
+                </div>
+
+                <div class="relative w-10 h-10">
+                  <button type="button" id="dashMicBtn" onclick="startVoiceSearchDash()" class="absolute inset-0 bg-gradient-to-br from-green-50 to-green-100 text-green-600 rounded-xl shadow-[2px_2px_5px_rgba(0,0,0,0.1),-1px_-1px_5px_rgba(255,255,255,0.9)] hover:shadow-inner transition-all flex items-center justify-center group active:scale-90 border border-white/50 focus:outline-none" title="ค้นหาด้วยเสียง">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                  </button>
+                  <button type="button" id="dashQrBtn" onclick="openQRScanner('dashSearchId');" class="absolute inset-0 bg-gradient-to-br from-[#06245C] to-blue-600 text-white rounded-xl shadow-[2px_2px_5px_rgba(0,0,0,0.1),-1px_-1px_5px_rgba(255,255,255,0.9)] hover:shadow-inner transition-all flex items-center justify-center group active:scale-90 border border-white/50 focus:outline-none" title="สแกน QR Code" style="animation: pulse-blue-glow 2s infinite;">
+                    <span class="absolute inset-0 bg-blue-400 animate-ping opacity-25 rounded-xl"></span>
+                    <svg class="w-5 h-5 relative z-10 group-hover:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <ul id="dashCustomDropdown" class="hidden absolute top-[100%] mt-2 left-0 w-full bg-white border-2 border-brandBlue/20 rounded-xl shadow-2xl max-h-64 overflow-y-auto z-[999] divide-y divide-gray-100"></ul>
+          </div>
+
+          <div id="dashHistoryLoader" class="hidden mt-6 mb-2 py-10 flex flex-col items-center justify-center bg-white/40 backdrop-blur-sm rounded-2xl border border-dashed border-gray-300">
+             <div class="relative w-20 h-20 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-t-4 border-brandBlue animate-spin"></div>
+                <div class="absolute inset-2 rounded-full border-r-4 border-blue-400 animate-spin" style="animation-direction: reverse;"></div>
+                <svg class="w-10 h-10 text-brandBlue relative z-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+             </div>
+             <p class="text-sm font-black text-brandBlue mt-5 animate-pulse uppercase tracking-widest drop-shadow-sm">Searching History Log...</p>
+          </div>
+
+          <div id="dashHistoryContainer" class="hidden mt-6 pt-5 border-t-2 border-dashed border-blue-300/50 transition-all duration-500">
+          </div>
+          
+        </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="modalGmrlPending" class="hidden fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-end sm:justify-center transition-opacity duration-300 opacity-0 p-2 sm:p-4">
+  <div class="bg-gradient-to-b from-blue-50 to-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl transform translate-y-full sm:scale-95 transition-all duration-300 flex flex-col max-h-[85vh] overflow-hidden" id="modalGmrlContent">
+    <div class="px-5 py-4 flex justify-between items-center border-b border-blue-100 bg-white relative">
+      <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>
+      <h3 class="text-lg font-black text-[#06245C] flex items-center gap-2 ml-2"><span class="text-xl">📋</span> รายการงานค้าง (รอปิดจ๊อบ)</h3>
+      <button onclick="closeGmrlPendingModal()" class="w-8 h-8 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-500 rounded-full flex items-center justify-center transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+    </div>
+    <div id="gmrlPendingListWrap" class="p-4 overflow-y-auto flex-1 space-y-3 bg-slate-50/50 relative">
+      <div id="gmrlPendingLoader" class="py-10 flex flex-col items-center justify-center">
+         <div class="relative w-16 h-16 flex items-center justify-center">
+             <div class="absolute inset-0 rounded-full border-t-4 border-b-4 border-blue-500 animate-spin opacity-80"></div>
+             <div class="absolute inset-2 rounded-full border-r-4 border-l-4 border-[#04d4d4] animate-spin" style="animation-direction: reverse; animation-duration: 1.2s;"></div>
+             <div class="bg-white/50 rounded-full p-1.5 backdrop-blur-sm relative z-10">
+                <svg class="w-6 h-6 text-[#06245C] animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+             </div>
+         </div>
+         <p class="text-xs font-bold text-gray-500 mt-4 animate-pulse">กำลังสแกนหางานค้าง...</p>
+      </div>
+      <div id="gmrlPendingList" class="space-y-3"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let isDashboardLoaded = false;
+  let apexChartObj = null;
+  const SAM_COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
+
+  document.addEventListener('click', function(e) {
+      if (!e.target.closest('#dashInputWrap') && !e.target.closest('#dashCustomDropdown')) { 
+          const drop = document.getElementById('dashCustomDropdown'); 
+          if(drop) drop.classList.add('hidden'); 
+      }
+  });
+
+  // โครงสร้างเดิมของเจ้านาย ไม่มีการไปบังคับโหลดข้อมูลมั่วซั่ว
+  document.addEventListener("DOMContentLoaded", () => {
+    const d = new Date();
+    document.getElementById('globalMonthFilter').value = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
+
+    const lbl = document.getElementById('animatedWaveLabel');
+    if(lbl) {
+        const text = lbl.innerText;
+        lbl.innerHTML = '';
+        text.split('').forEach((char, i) => {
+            let span = document.createElement('span');
+            span.innerHTML = char === ' ' ? '&nbsp;' : char;
+            span.style.transitionDelay = `${i * 15}ms`; 
+            lbl.appendChild(span);
+        });
+    }
+  });
+
+  // ⚡ J.A.R.V.I.S. Core Protocol: Updated Dashboard Loader
+  function loadDashboardData(forceRefresh = false) {
+    // 1. [อัปเกรด] ถ้าโหลดข้อมูลไปแล้ว และ "ไม่ได้" บังคับรีเฟรช ให้หยุดการทำงาน
+    if(isDashboardLoaded && !forceRefresh) return; 
+    
+    // 2. [อัปเกรด] ระบบ Soft Refresh
+    // ถ้าสลับเมนูมาครั้งแรก (!forceRefresh) จะซ่อนเนื้อหาและขึ้นจอโหลด
+    // แต่ถ้ากดปุ่มรีเฟรช (forceRefresh = true) จะไม่ซ่อนเนื้อหา เพื่อไม่ให้หน้าจอขาวกะพริบ!
+    if (!forceRefresh) {
+        document.getElementById('dashboardLoading').classList.remove('hidden');
+        document.getElementById('dashboardContent').classList.add('hidden');
+    }
+    
+    // ---------------------------------------------------------
+    // โค้ดด้านล่างนี้คือของเดิมของคุณ 100% ผมไม่ได้แตะต้อง Logic ใดๆ ครับ
+    // ---------------------------------------------------------
+    const fInput = document.getElementById('globalMonthFilter').value;
+    let m = null, y = null;
+    if(fInput) { const parts = fInput.split('-'); y = parseInt(parts[0]); m = parseInt(parts[1]) - 1; }
+    
+    google.script.run
+        .withSuccessHandler(renderDashboard)
+        .withFailureHandler((err) => {
+            console.error(err);
+            // ปิดจอโหลดถ้าดึงข้อมูลพลาด
+            document.getElementById('dashboardLoading').classList.add('hidden');
+            Swal.fire({ icon: 'error', title: 'ข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อฐานข้อมูลหลักได้ กรุณาลองใหม่', customClass: { container: 'z-[99999]' } });
+        })
+        .getDashboardData(m, y); 
+
+    google.script.run
+        .withSuccessHandler(renderGmrlDashboardData)
+        .withFailureHandler(err => console.error(err))
+        .getGmrlDashboardData(m, y);
+  }
+
+  // ⚡ J.A.R.V.I.S. Update: renderDashboard + Sci-Fi Time Sync
+  function renderDashboard(res) {
+    if(res.status !== 'success') {
+        document.getElementById('dashboardLoading').classList.add('hidden');
+        Swal.fire({ icon: 'error', title: 'ข้อผิดพลาด', text: res.message, customClass: { container: 'z-[99999]' } });
+        return;
+    }
+    const d = res.data;
+
+    // 🕒 อัปเดตเวลา พร้อมเอฟเฟกต์เรืองแสง (Sci-Fi Text Glow)
+    const timeEl = document.getElementById('syncTimeText');
+    if (timeEl) {
+        timeEl.innerText = `อัปเดต: ${new Date().toLocaleTimeString('th-TH')}`;
+        // สั่งให้ตัวหนังสือเรืองแสงเป็นสี Cyan แว้บนึง
+        timeEl.classList.add('text-[#04d4d4]', 'font-bold', 'scale-105', 'transition-all', 'duration-300');
+        // คืนค่ากลับเป็นปกติหลังจากผ่านไป 1.5 วินาที
+        setTimeout(() => {
+            timeEl.classList.remove('text-[#04d4d4]', 'font-bold', 'scale-105');
+        }, 1500);
+    }
+
+    document.getElementById('dashboardLoading').classList.add('hidden');
+    document.getElementById('dashboardContent').classList.remove('hidden');
+
+    animateValue('valTotalMoney', 0, d.totalValue || 0, 1500, true);
+    animateValue('chartTotalCount', 0, d.totalAssets || 0, 1500);
+    
+    window.currentPmCost = d.maintenanceCost || 0;
+    if(typeof updateTotalCostDisplay === 'function') updateTotalCostDisplay();
+
+    document.getElementById('valTransIn').innerText = d.transferInMonth || 0;
+    document.getElementById('valTransOut').innerText = d.transferOutMonth || 0;
+    document.getElementById('valPmDueSoon').innerText = d.pmDueSoon || 0;
+    document.getElementById('valPmOverdue').innerText = d.pmOverdue || 0;
+    document.getElementById('valBorrowed').innerText = d.borrowed || 0;
+    document.getElementById('valOverdueReturn').innerText = d.overdueReturn || 0;
+
+    setTimeout(() => { 
+      try { 
+        renderApexRadialChart(d.categoryChart); 
+        renderLeaderboard(d.techPerformance); 
+      } catch(e) { 
+        console.error("SAM UI Error:", e); 
+      }
+    }, 300);
+    
+    isDashboardLoaded = true;
+  }
+  
+  function renderGmrlDashboardData(res) {
+      if(res.status !== 'success') return;
+      const gmrlPendingEl = document.getElementById('valGmrlPending');
+      if(gmrlPendingEl) animateValue('valGmrlPending', 0, res.pendingJobs || 0, 1000);
+      window.currentGmrlCost = res.gmrlCost || 0;
+      if(typeof updateTotalCostDisplay === 'function') updateTotalCostDisplay();
+      if (res.techPerformance) { renderGmrlLeaderboard(res.techPerformance); }
+      
+      // ⚡ J.A.R.V.I.S. PRO: เพิ่มคำสั่งเรียกฟังก์ชัน TOP 10 Type ตรงนี้ครับ
+      if (res.typePerformance) { renderGmrlTop10Types(res.typePerformance); }
+  }
+
+  function updateTotalCostDisplay() {
+      let pmCost = window.currentPmCost || 0;
+      let gmrlCost = window.currentGmrlCost || 0;
+      let total = pmCost + gmrlCost;
+      const costEl = document.getElementById('valCost');
+      if(costEl) animateValue('valCost', 0, total, 1500, true);
+  }
+
+  // ✨ จัดอันดับทีมช่าง GMRL (ช่างโจ, ช่างอาร์ม, ทีมช่าง T | H | A) - สลับอันดับอัตโนมัติ
+  function renderGmrlLeaderboard(techObj) {
+    const container = document.getElementById('gmrlTechLeaderboard'); 
+    if(!container) return;
+    container.innerHTML = '';
+    
+    // ดึงข้อมูลจาก backend ถ้าไม่มีให้มีค่าเริ่มต้นเป็น 0
+    let safeTechObj = techObj || {};
+    
+    let techArray = [
+        { name: "ช่างโจ", count: safeTechObj["ช่างโจ"] ? safeTechObj["ช่างโจ"].count : 0, cost: safeTechObj["ช่างโจ"] ? safeTechObj["ช่างโจ"].cost : 0 },
+        { name: "ช่างอาร์ม", count: safeTechObj["ช่างอาร์ม"] ? safeTechObj["ช่างอาร์ม"].count : 0, cost: safeTechObj["ช่างอาร์ม"] ? safeTechObj["ช่างอาร์ม"].cost : 0 },
+        { name: "ทีมช่าง T | H | A", count: safeTechObj["ทีมช่าง T | H | A"] ? safeTechObj["ทีมช่าง T | H | A"].count : 0, cost: safeTechObj["ทีมช่าง T | H | A"] ? safeTechObj["ทีมช่าง T | H | A"].cost : 0 }
+    ];
+    
+    // จัดเรียงลำดับตามจำนวนงาน (count) จากมากไปน้อย
+    techArray.sort((a,b) => b.count - a.count); 
+    
+    // หาค่างานสูงสุดเพื่อเอาไปคำนวณ % ความยาวของหลอดพลัง
+    const maxJobs = techArray[0].count > 0 ? techArray[0].count : 1;
+    const medals = ['🥇','🥈','🥉'];
+
+    techArray.forEach((tech, i) => {
+      let val = tech.count; 
+      let cost = tech.cost; 
+      let pct = (val / maxJobs) * 100;
+      
+      // แชมป์คืออันดับ 1 (i=0) และต้องมีผลงานมากกว่า 0
+      const isChampion = i === 0 && val > 0;
+      const rankClass = isChampion ? 'gmrl-champion' : 'bg-gray-50/50';
+      const medalShadow = isChampion ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]' : '';
+      
+      container.innerHTML += `
+      <div class="flex items-center gap-3.5 p-3.5 rounded-2xl border border-gray-100 transition-all duration-500 hover:shadow-md ${rankClass}">
+        <div class="w-10 h-10 flex items-center justify-center text-center text-2xl bg-white rounded-full shadow-sm border border-gray-100 shrink-0 ${medalShadow}">${medals[i]}</div>
+        <div class="flex-grow">
+          <div class="flex justify-between items-center text-sm font-bold mb-2">
+            <span class="text-emerald-900 tracking-tight font-black uppercase flex items-center gap-1">${tech.name} ${isChampion ? '🏆' : ''}</span>
+            <div class="flex flex-col items-end">
+                <span class="${isChampion ? 'text-emerald-600' : 'text-gray-600'} bg-white px-3 py-0.5 rounded-full font-black shadow-sm border border-gray-50 text-xs">${val} งาน</span>
+                <span class="text-[10px] text-gray-500 mt-1 uppercase font-bold">ยอดซ่อม: <span class="text-red-500">฿${cost.toLocaleString()}</span></span>
+            </div>
+          </div>
+          <div class="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden shadow-inner relative border border-gray-100">
+            <div class="h-full ${isChampion ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-emerald-400'} rounded-full transition-all duration-1000 relative overflow-hidden" style="width: ${pct}%">
+              <div class="prog-light-bar" style="animation: rlc-sweep 2.2s linear infinite;"></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  // ✨ อัปเกรด TOP 10 Job Type: ระยะช่องไฟกระชับขึ้น + เอฟเฟกต์แชมป์เปี้ยนอันดับ 1
+  function renderGmrlTop10Types(typeObj) {
+      const container = document.getElementById('gmrlTop10TypesList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      let safeTypeObj = typeObj || {};
+      let typeArray = [];
+      for (let key in safeTypeObj) {
+          if (safeTypeObj.hasOwnProperty(key)) {
+              typeArray.push({ name: key, count: safeTypeObj[key].count || 0, cost: safeTypeObj[key].cost || 0 });
+          }
+      }
+
+      typeArray.sort(function(a, b) {
+          if (b.count === a.count) { return b.cost - a.cost; }
+          return b.count - a.count;
+      });
+
+      let top10 = typeArray.slice(0, 10);
+      if (top10.length === 0) {
+          container.innerHTML = '<div class="col-span-1 sm:col-span-2 text-center text-[11px] font-bold text-gray-400 py-4 border border-dashed border-gray-300 rounded-2xl bg-white/30">ยังไม่มีข้อมูลประเภทงาน</div>';
+          return;
+      }
+
+      let htmlString = '';
+      top10.forEach(function(item, index) {
+          let rank = index + 1;
+          let rankStyle = '';
+          let rowExtraClass = '';
+          let crownIcon = '';
+          
+          // ⚡ J.A.R.V.I.S. Action: จัดเต็มเอฟเฟกต์ให้อันดับ 1
+          if (rank === 1) { // 🥇 ทอง + Action สุดพิเศษ
+              rankStyle = 'bg-[#FFD700] text-[#744210] border-[#ECC94B] shadow-[0_0_8px_rgba(255,215,0,0.8)] animate-pulse'; // เหรียญเรืองแสงและกระพริบ
+              rowExtraClass = 'bg-yellow-50/80 border-yellow-300 shadow-md scale-[1.02] transform z-10 relative'; // กล่องนูนขึ้น พื้นหลังสีทองอ่อน
+              crownIcon = '<span class="inline-block text-xs ml-1 animate-bounce">👑</span>'; // มงกุฎเด้งได้
+          } else if (rank === 2) { // 🥈 เงิน
+              rankStyle = 'bg-[#C0C0C0] text-[#2D3748] border-[#A0AEC0]';
+              rowExtraClass = 'bg-white/40 hover:bg-white/70';
+          } else if (rank === 3) { // 🥉 ทองแดง
+              rankStyle = 'bg-[#CD7F32] text-white border-[#B8860B]';
+              rowExtraClass = 'bg-white/40 hover:bg-white/70';
+          } else { // อันดับทั่วไป
+              rankStyle = 'bg-gray-100 text-gray-500 border-gray-200';
+              rowExtraClass = 'bg-white/40 hover:bg-white/70';
+          }
+          
+          htmlString += '<div class="flex items-center justify-between p-3 border-b border-gray-300 transition-all group ' + rowExtraClass + '">';
+          
+          // โซนซ้าย: [อันดับ] + [ชื่อประเภทงาน]
+          htmlString += '<div class="flex items-start gap-3 flex-1 overflow-hidden">';
+          htmlString += '<span class="flex items-center justify-center w-6 h-6 rounded-full border text-[11px] font-black shrink-0 ' + rankStyle + '">' + rank + '</span>';
+          htmlString += '<span class="text-[13px] font-black text-[#06245C] leading-tight break-words">' + item.name + crownIcon + '</span>';
+          htmlString += '</div>';
+
+          // โซนขวา: [จำนวนงาน] | [ยอดเงิน]
+          // ⚡ J.A.R.V.I.S. PRO FIX: ลด gap-3 เหลือ gap-1.5 และบีบ w-[60px] เหลือ w-[45px] เพื่อดึงเข้ามาให้ชิดกัน
+          htmlString += '<div class="flex items-center gap-1.5 shrink-0 ml-2">';
+          htmlString += '<span class="text-[11px] font-bold text-blue-800">' + item.count + ' งาน</span>';
+          htmlString += '<span class="text-gray-400 font-light text-[14px] mx-0.5">|</span>'; // เติม mx-0.5 ให้เส้นคั่นมีช่องไฟนิดนึง
+          htmlString += '<span class="text-[12px] font-black text-red-600 w-[45px] text-right">฿' + item.cost.toLocaleString() + '</span>';
+          htmlString += '</div>';
+
+          htmlString += '</div>';
+      });
+
+      container.innerHTML = htmlString;
+  }
+
+  function openGmrlPendingModal() {
+      const modal = document.getElementById('modalGmrlPending');
+      const content = document.getElementById('modalGmrlContent');
+      modal.classList.remove('hidden');
+      setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-full', 'sm:scale-95'); }, 10);
+      document.getElementById('gmrlPendingLoader').classList.remove('hidden');
+      document.getElementById('gmrlPendingList').innerHTML = '';
+      google.script.run.withSuccessHandler(renderPendingGmrlJobs).getPendingGmrlJobs();
+  }
+
+  function closeGmrlPendingModal() {
+      const modal = document.getElementById('modalGmrlPending');
+      const content = document.getElementById('modalGmrlContent');
+      modal.classList.add('opacity-0'); content.classList.add('translate-y-full', 'sm:scale-95');
+      setTimeout(() => { modal.classList.add('hidden'); }, 300);
+  }
+
+  // ✨ จัดการ์ด GMRL จัดเต็ม (Bulletproof Version 100% ปลอดภัย)
+  function renderPendingGmrlJobs(res) {
+      document.getElementById('gmrlPendingLoader').classList.add('hidden');
+      const listDiv = document.getElementById('gmrlPendingList');
+      if (!res.success || res.data.length === 0) {
+          listDiv.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center border border-dashed border-gray-300"><div class="text-4xl mb-2">🎉</div><p class="text-gray-500 font-bold text-sm">ยอดเยี่ยม! ไม่มีงานซ่อมคงค้าง</p></div>'; 
+          return;
+      }
+      
+      let html = ''; 
+      res.data.forEach((job) => {
+          
+          // ⚡ J.A.R.V.I.S. PRO FIX: ใช้การต่อ String แบบดั้งเดิม ไม่มี Backtick ซ้อน เพื่อความเสถียรสูงสุด
+          let locationBadge = job.location ? '<span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shadow-inner flex items-center gap-1 shrink-0 mt-[-2px]"><span class="text-xs">📍</span>' + job.location + '</span>' : '';
+          let jobTitle = job.category || job.assetName || 'ซ่อมบำรุงทั่วไป';
+          let jobDetails = job.details || '-';
+
+          html += `
+          <div class="bg-white rounded-2xl p-4 border border-blue-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden mb-3">
+              <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-amber-400 to-orange-400"></div>
+              
+              <div class="flex items-center gap-2 mb-2 pl-2 flex-wrap">
+                  <span class="text-[10px] font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 shrink-0">${job.logId}</span>
+                  <span class="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md truncate border border-blue-200 shadow-inner">${jobTitle}</span>
+              </div>
+              
+              <div class="pl-2 mb-3">
+                <div class="flex justify-between items-start gap-2 mb-1">
+                    <h4 class="text-sm font-black text-[#06245C]">${job.type}</h4>
+                    ${locationBadge}
+                </div>
+                <p class="text-[12px] bg-gray-50 p-2.5 rounded-lg border border-gray-100 whitespace-pre-wrap leading-relaxed"><span class="text-gray-400 font-medium">Details : </span><span class="text-gray-700 font-medium">${jobDetails}</span></p>
+              </div>
+              
+              <div id="actionArea_${job.logId}" class="flex items-center gap-2 pl-2 mt-1 pt-2 border-t border-gray-50 min-h-[55px]">
+                  <div class="relative flex-1 h-[42px] flex items-center gap-1 group/date">
+                      <div class="relative flex-1 h-full">
+                          <input type="date" id="dateClose_${job.logId}" 
+                              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
+                              onchange="let d=this.value.split('-'); if(d.length===3){ this.nextElementSibling.querySelector('span.date-text').innerText=d[2]+'/'+d[1]+'/'+d[0]; this.nextElementSibling.classList.add('border-blue-400', 'bg-blue-50'); this.nextElementSibling.querySelector('div.cal-icon').classList.remove('animate-pulse', 'text-blue-500', 'bg-blue-50', 'ring-2', 'ring-blue-200'); this.nextElementSibling.querySelector('div.cal-icon').classList.add('bg-blue-600', 'text-white'); this.parentElement.nextElementSibling.classList.remove('hidden'); }">
+                          
+                          <div class="date-display-wrap flex items-center justify-between h-full border border-gray-200 rounded-xl px-3 py-1 bg-white group-hover/date:border-blue-300 transition-all shadow-sm">
+                              <span class="date-text text-[13px] font-bold text-gray-400 truncate pr-2">เลือกวันที่ปิดงาน</span>
+                              <div class="cal-icon w-8 h-8 flex items-center justify-center bg-blue-50 text-blue-500 rounded-lg shadow-sm border border-blue-100 transition-colors shrink-0 animate-pulse ring-2 ring-blue-200">
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                              </div>
+                          </div>
+                      </div>
+                      
+                      <button type="button" class="hidden w-11 h-full bg-red-50 hover:bg-red-100 text-red-500 rounded-xl border border-red-100 flex items-center justify-center transition-all shrink-0 focus:outline-none z-30 shadow-sm" onclick="const p=this.previousElementSibling; p.querySelector('input').value=''; const disp=p.querySelector('.date-display-wrap'); disp.querySelector('span.date-text').innerText='เลือกวันที่ปิดงาน'; disp.classList.remove('border-blue-400', 'bg-blue-50'); const icon=disp.querySelector('div.cal-icon'); icon.classList.remove('bg-blue-600', 'text-white'); icon.classList.add('animate-pulse', 'text-blue-500', 'bg-blue-50', 'ring-2', 'ring-blue-200'); this.classList.add('hidden');">
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                      </button>
+                  </div>
+                  
+                  <button onclick="confirmCloseGmrlJobInline('${job.logId}')" class="bg-brandBlue hover:bg-blue-800 text-white text-[14px] font-black px-5 h-[42px] rounded-xl shadow-md active:scale-95 transition-all shrink-0">ปิดจ๊อบ</button>
+              </div>
+          </div>`;
+      });
+      listDiv.innerHTML = html;
+  }
+
+  // ✨ ขยาย Hitbox และขนาดปุ่มยืนยันให้ได้สัดส่วนที่กว้างขึ้น สูงขึ้น และกดง่ายที่สุด
+  function confirmCloseGmrlJobInline(logId) {
+      const dateInput = document.getElementById(`dateClose_${logId}`).value;
+      if (!dateInput) {
+          Swal.fire({ icon: 'warning', title: 'แจ้งเตือน', text: 'กรุณาเลือกวันที่ปิดงาน', customClass: { container: 'z-[99999]', popup: 'rounded-3xl' } });
+          return;
+      }
+      
+      const parts = dateInput.split('-'); 
+      const formattedDate = parts[2] + '/' + parts[1] + '/' + parts[0];
+      const actionArea = document.getElementById(`actionArea_${logId}`);
+      
+      if (!actionArea.hasAttribute('data-original')) { 
+          actionArea.setAttribute('data-original', actionArea.innerHTML); 
+      }
+
+      // ⚡ J.A.R.V.I.S. PRO FIX: ประกอบโค้ด HTML ด้วย String Concatenation ธรรมดา เพื่อดับบั๊กค้าง 100%
+      let confirmHtml = '<div class="flex flex-col w-full gap-3 py-2 transition-all duration-300 justify-center pr-2">';
+      confirmHtml += '<span class="text-[13px] font-black text-[#06245C] bg-blue-50 px-3 py-2 rounded-lg text-center border border-blue-100 shadow-inner">ยืนยันปิดงานวันที่ : <span class="text-red-600">' + formattedDate + '</span> ?</span>';
+      
+      // ปรับความสูงเป็น 42px และแบ่งสัดส่วน w-1/3 กับ w-2/3 ให้กว้างกำลังดี
+      confirmHtml += '<div class="flex gap-2 w-full h-[42px]">';
+      
+      // ปุ่มยกเลิก
+      confirmHtml += '<button onclick="cancelCloseGmrlJobInline(\'' + logId + '\')" class="w-1/3 bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-800 text-[14px] font-black rounded-xl transition-all active:scale-95 shadow-sm">ยกเลิก</button>';
+      
+      // ปุ่มยืนยันปิดจ๊อบ
+      confirmHtml += '<button onclick="executeCloseGmrlJob(\'' + logId + '\', \'' + formattedDate + '\')" class="w-2/3 bg-emerald-500 hover:bg-emerald-600 text-white text-[15px] font-black rounded-xl shadow-sm transition-all flex justify-center items-center gap-2 active:scale-95">';
+      confirmHtml += '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg> ยืนยันปิดจ๊อบ';
+      confirmHtml += '</button>';
+      
+      confirmHtml += '</div></div>';
+
+      actionArea.innerHTML = confirmHtml;
+  }
+
+  function cancelCloseGmrlJobInline(logId) {
+      const actionArea = document.getElementById(`actionArea_${logId}`);
+      actionArea.innerHTML = actionArea.getAttribute('data-original');
+  }
+
+  function executeCloseGmrlJob(logId, formattedDate) {
+      const actionArea = document.getElementById(`actionArea_${logId}`);
+      actionArea.innerHTML = `<div class="w-full h-full flex items-center justify-center text-[13px] font-black text-blue-500 animate-pulse bg-blue-50 rounded-xl border border-blue-100">⏳ กำลังบันทึกข้อมูล...</div>`;
+
+      google.script.run.withSuccessHandler((res) => {
+          if(res.success) {
+              Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'ปิดงานเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false, customClass: { container: 'z-[99999]', popup: 'rounded-3xl' } });
+              openGmrlPendingModal(); isDashboardLoaded = false; loadDashboardData(); 
+          } else { 
+              Swal.fire({ icon: 'error', title: 'ข้อผิดพลาด', text: res.message, customClass: { container: 'z-[99999]', popup: 'rounded-3xl' } });
+              cancelCloseGmrlJobInline(logId);
+          }
+      }).withFailureHandler((err) => {
+          Swal.fire({ icon: 'error', title: 'การเชื่อมต่อขัดข้อง', text: 'โปรดลองอีกครั้ง', customClass: { container: 'z-[99999]', popup: 'rounded-3xl' } });
+          cancelCloseGmrlJobInline(logId);
+      }).closeGmrlJob(logId, formattedDate);
+  }
+
+  // =========================================================
+
+  function hexToRgba(hex, alpha) {
+    if (!hex) return `rgba(136, 136, 136, ${alpha})`;
+    let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  // ✨ อัปเกรดกราฟเกือกม้า (175 องศา - ปลายเกือบชนกัน) พร้อมลายน้ำ S.A.M.
+  function renderApexRadialChart(catData) {
+    const chartDiv = document.querySelector("#apexRadialChart");
+    if(!chartDiv) return;
+    const containerWrap = chartDiv.parentElement;
+    
+    // ⚡ จัดการพื้นที่กล่องกราฟให้สมส่วน และเตรียมพื้นที่ให้ลายน้ำ
+    if(containerWrap) { 
+        containerWrap.style.height = '320px'; 
+        containerWrap.style.minHeight = '320px'; 
+        containerWrap.classList.add('relative'); 
+        
+        // ลบลายน้ำเก่าออกก่อน (ป้องกันการซ้อนทับเวลาข้อมูลอัปเดต)
+        const oldWm = containerWrap.querySelector('.sam-watermark');
+        if(oldWm) oldWm.remove();
+
+        // สร้างลายน้ำใหม่ By THA Smart Asset System [ S.A.M. ] ใต้กราฟ
+        const wm = document.createElement('div');
+        wm.className = 'sam-watermark absolute bottom-4 left-0 w-full text-center pointer-events-none z-10';
+        wm.innerHTML = '<span style="color: rgba(255,255,255,0.4); font-size: 9px; font-weight: 800; letter-spacing: 0.25em; text-transform: uppercase; font-family: sans-serif;">By THA Smart Asset System [ S.A.M. ]</span>';
+        containerWrap.appendChild(wm);
+    }
+    
+    const entries = Object.entries(catData || {}).sort((a,b) => b[1]-a[1]).slice(0, 5);
+    const values = entries.map(e => e[1]);
+    const labels = entries.map(e => e[0]);
+    if(values.length === 0) { chartDiv.innerHTML = '<div class="text-white opacity-40 text-xs flex items-center justify-center h-full">ยังไม่มีข้อมูลในระบบ</div>'; return; }
+
+    const maxVal = (Math.max(...values, 1)) * 1.2;
+    const seriesValues = values.map(v => (v / maxVal) * 100);
+    
+    const options = { 
+        series: seriesValues, 
+        chart: { height: 340, type: 'radialBar' }, 
+        plotOptions: { 
+            radialBar: { 
+                // ⚡ กางองศาเป็น 175 ให้ปลายเส้นกราฟใกล้กันแบบ "แค่เอื้อม"
+                startAngle: -175, 
+                endAngle: 175,
+                // แกนกลาง 49% เพื่อให้เส้นหนาสวยงาม
+                hollow: { size: '49%', background: 'transparent' }, 
+                track: { background: 'rgba(255,255,255,0.05)', strokeWidth: '100%' }, 
+                dataLabels: { 
+                    name: { show: false }, 
+                    value: { show: true, fontSize: '16px', fontWeight: '900', color: '#fff', offsetY: 0, formatter: (val, opt) => values[opt.seriesIndex] } 
+                } 
+            } 
+        }, 
+        grid: { padding: { top: 0, bottom: 20, left: 10, right: 10 } },
+        colors: SAM_COLORS, 
+        // สั่งให้ปลายเส้นกราฟมีความโค้งมนสวยงาม
+        stroke: { lineCap: 'round' }, 
+        labels: labels, 
+        legend: { show: false } 
+    };
+
+    if(apexChartObj) apexChartObj.destroy(); 
+    apexChartObj = new ApexCharts(chartDiv, options); 
+    apexChartObj.render();
+
+    const totalCountEl = document.getElementById('chartTotalCount');
+    if(totalCountEl) totalCountEl.classList.add('animate-asset-total');
+
+    const list = document.getElementById('top5List'); 
+    list.innerHTML = '';
+    const medals = ['🥇','🥈','🥉','🎖️','🎖️'];
+    entries.forEach((e, i) => {
+      const color = SAM_COLORS[i] || '#888';
+      let rowHtml = '<div class="run-light-card rounded-2xl shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 mb-2.5" style="--line-color: ' + color + ';">';
+      rowHtml += '<div class="rlc-light"></div><div class="absolute inset-[2px] bg-white z-[-1]" style="border-radius: calc(1rem - 2px);"></div>';
+      rowHtml += '<div class="absolute inset-[2px] z-[0]" style="background: linear-gradient(90deg, ' + hexToRgba(color, 0.95) + ' 0%, ' + hexToRgba(color, 0.2) + ' 60%, rgba(255,255,255,0) 100%); border-radius: calc(1rem - 2px);"></div>';
+      rowHtml += '<div class="relative z-10 flex justify-between items-center p-3 px-4">';
+      rowHtml += '<div class="flex items-center gap-3 overflow-hidden"><span class="w-7 text-center text-lg drop-shadow-md">' + medals[i] + '</span><span class="font-black text-[12px] sm:text-sm truncate tracking-tight text-white uppercase" style="text-shadow: 0px 1px 3px rgba(0,0,0,0.5);">' + e[0] + '</span></div>';
+      rowHtml += '<div class="flex-shrink-0 text-right ml-2"><span class="text-white font-black text-[10px] px-3 py-1.5 rounded-full shadow-md border border-white/20" style="background-color: ' + color + ';">' + e[1] + ' <span class="text-[9px] font-bold opacity-80 ml-0.5">รายการ</span></span></div>';
+      rowHtml += '</div></div>';
+      list.innerHTML += rowHtml;
+    });
+  }
+
+  // ✨ นำการ์ด Top Performance รุ่น 3 อันดับ พร้อม Standby อัตโนมัติกลับมา (รูป 38)
+  function renderLeaderboard(techData) {
+    const container = document.getElementById('techLeaderboard'); container.innerHTML = '';
+    // ดึงข้อมูลรายชื่อช่างทั้งหมดมาเรียงลำดับจากมากไปน้อย
+    const entries = Object.entries(techData || {}).sort((a,b) => b[1]-a[1]);
+    const maxJobs = entries[0] ? Math.max(entries[0][1], 1) : 1;
+    const medals = ['🥇','🥈','🥉'];
+    
+    // วนลูปสร้างการ์ด 3 ใบเสมอ
+    for (let i = 0; i < 3; i++) {
+      // ถ้ามีชื่อช่างให้แสดงชื่อ ถ้าไม่มี(ยังไม่ถึง 3 คน) ให้แสดงคำว่า Standby...
+      let name = entries[i] ? entries[i][0] : "Standby..."; 
+      let val = entries[i] ? entries[i][1] : 0; 
+      let pct = (val / maxJobs) * 100;
+      
+      const isChampion = i === 0 && val > 0;
+      const rankClass = isChampion ? 'champion-rank' : 'bg-gray-50/50';
+      const medalShadow = isChampion ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : '';
+      
+      container.innerHTML += `
+      <div class="flex items-center gap-3.5 p-3.5 rounded-2xl border border-gray-100 transition-all duration-500 hover:shadow-md ${rankClass}">
+          <div class="w-10 h-10 flex items-center justify-center text-center text-2xl bg-white rounded-full shadow-sm border border-gray-100 ${medalShadow} shrink-0">${medals[i]}</div>
+          <div class="flex-grow">
+              <div class="flex justify-between items-center text-xs font-bold mb-2">
+                  <span class="text-[#06245C] tracking-tight font-black uppercase flex items-center gap-1">${name} ${isChampion ? '👑' : ''}</span>
+                  <span class="${isChampion ? 'text-amber-600' : 'text-blue-600'} bg-white px-3 py-0.5 rounded-full font-black shadow-sm border border-gray-50">${val} งาน</span>
+              </div>
+              <div class="w-full bg-gray-200 h-3 rounded-full overflow-hidden shadow-inner relative border border-gray-100">
+                  <div class="h-full ${isChampion ? 'bg-gradient-to-r from-blue-600 to-amber-500' : 'bg-blue-600'} rounded-full transition-all duration-1000 relative overflow-hidden" style="width: ${pct}%">
+                      <div class="prog-light-bar" style="animation: rlc-sweep 2.2s linear infinite;"></div>
+                  </div>
+              </div>
+          </div>
+      </div>`;
+    }
+  }
+
+  function clearDashSearch() {
+    const input = document.getElementById('dashSearchId');
+    if(input) {
+      input.value = '';
+      input.classList.remove('has-value');
+      input.style.height = ''; 
+      document.getElementById('dashInputWrap').classList.remove('has-value');
+      input.focus();
+    }
+    document.getElementById('dashCustomDropdown').classList.add('hidden');
+    hideDashHistory();
+  }
+
+  function toggleDashDropdown() {
+    const list = document.getElementById('dashCustomDropdown');
+    const input = document.getElementById('dashSearchId');
+    if (list) {
+      if (list.classList.contains('hidden')) { 
+        renderDashDropdown(input ? input.value : ''); 
+        if(input) input.focus(); 
+      } else { 
+        list.classList.add('hidden'); 
+      }
+    }
+  }
+
+  function renderDashDropdown(filterText) {
+    if(typeof filterText !== 'string') filterText = '';
+    const dropdown = document.getElementById('dashCustomDropdown');
+    if(!dropdown) return;
+    dropdown.innerHTML = '';
+    
+    const dataList = window.assetMasterList || [];
+    const searchTerms = filterText.toLowerCase().trim().split(/\s+/);
+    const filtered = dataList.filter(function(a) {
+      const fullString = (a.id + ' ' + a.name + ' ' + a.category + ' ' + (a.model || '') + ' ' + (a.serialNumber || '')).toLowerCase();
+      return searchTerms.every(function(term) { return fullString.indexOf(term) !== -1; });
+    });
+
+    if(filtered.length === 0) {
+      dropdown.innerHTML = '<li class="p-4 text-sm font-medium text-gray-500 text-center"> ไม่พบข้อมูลสินทรัพย์ในระบบ</li>';
+    } else {
+      filtered.slice(0, 30).forEach(function(item) {
+        const li = document.createElement('li');
+        li.className = 'p-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0 group';
+        const displayColor = item.color ? (' | สี' + item.color) : "";
+        const displayModel = item.model ? ('รุ่น ' + item.model) : "-";
+        const displayDim = item.dimensions ? (' | ขนาด ' + item.dimensions) : "";
+        const displaySerial = item.serialNumber ? (' | ' + item.serialNumber) : "";
+        
+        li.innerHTML = `
+          <div class="flex flex-col gap-1 w-full">
+            <div class="flex justify-between items-start w-full">
+              <span class="font-bold text-sm text-brandBlue group-hover:text-blue-700 transition-colors">${item.id}</span>
+              <span class="text-[10px] font-bold bg-blue-50 text-brandBlue px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">${item.location || 'ไม่ระบุจุด'}</span>
+            </div>
+            <span class="text-sm font-semibold text-gray-800 leading-tight">${item.name}${displayColor}</span>
+            <span class="text-xs text-gray-500 truncate">${displayModel}${displayDim}${displaySerial}</span>
+            <div class="mt-0.5"><span class="text-[10px] font-medium bg-blue-100/50 text-brandBlue px-2 py-0.5 rounded-full inline-block">${item.category}</span></div>
+          </div>
+        `;
+        li.onclick = function() { selectDashAsset(item.id); };
+        dropdown.appendChild(li);
+      });
+    }
+    dropdown.classList.remove('hidden');
+  }
+
+  function selectDashAsset(id) {
+    const input = document.getElementById('dashSearchId');
+    if(input) {
+       input.value = id;
+       input.classList.add('has-value');
+       document.getElementById('dashInputWrap').classList.add('has-value');
+       input.dispatchEvent(new Event('input', { bubbles: true })); 
+    }
+    document.getElementById('dashCustomDropdown').classList.add('hidden');
+    fetchDashHistory(); 
+  }
+
+  function startVoiceSearchDash() {
+    const inputField = document.getElementById('dashSearchId');
+    const micBtn = document.getElementById('dashMicBtn');
+    if(micBtn) { 
+        micBtn.classList.add('scale-95', 'bg-blue-100'); 
+        setTimeout(() => micBtn.classList.remove('scale-95', 'bg-blue-100'), 150); 
+    }
+    if(inputField) {
+        clearDashSearch(); 
+        const blinkClass = 'ring-4 ring-brandBlue bg-blue-50/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]';
+        inputField.classList.add(...blinkClass.split(' '));
+        setTimeout(() => inputField.classList.remove(...blinkClass.split(' ')), 400);
+        if (navigator.vibrate) navigator.vibrate([50]);
+        inputField.focus();
+    }
+  }
+
+  // ✨ ขยาย Hitbox ของจุด Timeline และปรับอักษรให้ใหญ่ขึ้น (รูป 36)
+  function fetchDashHistory() {
+    let key = document.getElementById('dashSearchId').value.trim();
+    if(!key) return;
+    
+    key = key.split(' - ')[0].trim();
+    
+    document.getElementById('dashHistoryLoader').classList.remove('hidden');
+    document.getElementById('dashHistoryContainer').classList.add('hidden');
+    document.getElementById('dashCustomDropdown').classList.add('hidden'); 
+    
+    google.script.run.withSuccessHandler(res => {
+      document.getElementById('dashHistoryLoader').classList.add('hidden');
+      if(res.status==='success') {
+        document.getElementById('dashHistoryContainer').classList.remove('hidden');
+        
+        let previewHtml = '';
+        if(res.imageUrl && res.imageUrl !== '' && res.imageUrl !== 'ไม่ได้แนบไฟล์' && !res.imageUrl.startsWith("Error")) {
+           let fastImgUrl = res.imageUrl;
+           if(typeof getFastThumbnailUrl === 'function') {
+               fastImgUrl = getFastThumbnailUrl(res.imageUrl);
+           } else {
+               let match = res.imageUrl.match(/id=([^&]+)/) || res.imageUrl.match(/file\/d\/([^\/]+)/);
+               if(match) fastImgUrl = "https://drive.google.com/thumbnail?id=" + match[1] + "&sz=w400";
+           }
+
+           previewHtml = `
+             <div class="mb-4 w-full border border-white/50 bg-white/30 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center overflow-hidden shadow-sm relative group">
+               <button class="absolute top-2 right-2 bg-white/70 backdrop-blur-lg p-1.5 rounded-lg shadow hover:bg-blue-50 text-[#06245C] transition-all z-10" onclick="window.open('${res.imageUrl}', '_blank')">
+                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+               </button>
+               <img src="${fastImgUrl}" onerror="this.onerror=null; this.style.display='none';" class="w-full h-48 object-contain p-2 rounded-2xl">
+             </div>`;
+        } else {
+           previewHtml = `<div class="mb-4 w-full border border-dashed border-white/50 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center transition-all duration-500 h-10 shadow-sm"><span class="text-[10px] font-bold text-gray-500 tracking-wide">สินทรัพย์นี้ไม่มีรูปภาพแนบ</span></div>`;
+        }
+
+        const containerHtml = previewHtml + `
+          <div class="relative mb-4 rounded-2xl shadow-lg border border-white/50 transition-all hover:-translate-y-0.5 bg-white/40" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+            <div class="glass-sweep-border rounded-2xl"><div class="rlc-light" style="--line-color: #3b82f6;"></div></div>
+            <div class="relative z-10 p-5 flex justify-between items-start">
+              <div class="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-blue-600 to-blue-400 rounded-l-2xl"></div>
+              <div class="flex items-start gap-4 pl-4 flex-1 min-w-0"> 
+                <div class="text-4xl drop-shadow-md mt-1 flex-shrink-0">📦</div>
+                <div class="flex-1 min-w-0 pr-2">
+                  <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Asset Name</p>
+                  <h4 id="dashHistName" class="text-base sm:text-lg font-black text-[#06245C] tracking-tight leading-snug break-words whitespace-normal">${res.assetName}</h4>
+                </div>
+              </div>
+              <div class="text-right flex-shrink-0 ml-2 border-l pl-4 border-gray-300">
+                <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Total Cost</p>
+                <h4 id="dashHistTotalCost" class="text-2xl sm:text-3xl font-black text-red-600 drop-shadow-sm">฿${res.totalCost.toLocaleString()}</h4>
+              </div>
+            </div>
+          </div>
+          <div id="dashTimeline" class="relative mt-4"></div>
+        `;
+        document.getElementById('dashHistoryContainer').innerHTML = containerHtml;
+        
+        let html = '';
+        if(res.data && res.data.length > 0) {
+          res.data.forEach((r, idx) => {
+            let isLatest = (idx === 0);
+            
+            // ขยายขนาดจุด Timeline ให้ใหญ่ขึ้น จิ้มง่าย
+            let dotHtml = isLatest 
+                ? `<div class="absolute w-5 h-5 rounded-full bg-blue-500 z-20 flex items-center justify-center shadow-[0_0_8px_rgba(59,130,246,0.6)]" style="left: 1.5px; top: 20px;">
+                     <span class="absolute inset-0 bg-blue-400 animate-ping opacity-75 rounded-full" style="animation-duration: 2s;"></span>
+                     <div class="w-2 h-2 bg-white rounded-full"></div>
+                   </div>`
+                : `<div class="absolute w-4 h-4 rounded-full bg-blue-200 border-[3px] border-white z-10 shadow-sm" style="left: 3.5px; top: 24px;"></div>`;
+            
+            let cardStyle = isLatest ? "border-blue-300/50 shadow-md bg-gradient-to-br from-white/70 to-blue-50/50 backdrop-blur-md" : "border-white/50 shadow-sm bg-white/40 hover:bg-white/60 backdrop-blur-md";
+            let dateStyle = isLatest ? "text-[#06245C]" : "text-gray-600";
+            
+            html += `
+            <div class="timeline-item group relative pl-[32px] pb-[24px]">
+              <div class="timeline-line" style="left: 10px; width: 3px;"></div>
+              ${dotHtml}
+              <div class="p-5 rounded-3xl border ${cardStyle} transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-0.5 relative overflow-hidden ml-2">
+                <div class="flex justify-between items-center font-black ${dateStyle} text-[13px] leading-none mb-3">
+                  <span class="flex items-center gap-1.5">🗓️ ${r.date} ${isLatest ? '<span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full ml-1 animate-pulse border border-blue-200">LATEST</span>' : ''}</span>
+                  <span class="text-red-600 font-extrabold text-sm bg-red-50/80 backdrop-blur-sm border border-red-200 px-3 py-1.5 rounded-full shadow-inner">฿${r.cost.toLocaleString()}</span>
+                </div>
+                <p class="text-[15px] font-black mt-1 text-gray-800 drop-shadow-sm">${r.type}</p>
+                <div class="mt-3 bg-white/50 p-4 rounded-xl border border-white/60 shadow-inner backdrop-blur-sm">
+                  <p class="text-[13px] text-gray-700 leading-relaxed">${r.details}</p>
+                </div>
+              </div>
+            </div>`;
+          });
+        } else {
+          html = '<div class="text-center py-8 text-sm font-bold text-gray-500 bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-dashed border-white/60 shadow-sm">ยังไม่มีประวัติการซ่อมบำรุงในระบบ</div>';
+        }
+        document.getElementById('dashTimeline').innerHTML = html;
+      }
+    }).getAssetHistoryLog(key);
+  }
+
+  function animateValue(id, start, end, duration, isCurrency = false) {
+    let obj = document.getElementById(id); if(!obj) return; let startTimestamp = null;
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp; const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const value = Math.floor(progress * (end - start) + start);
+      obj.innerHTML = isCurrency ? "฿" + value.toLocaleString() : value.toLocaleString();
+      if (progress < 1) window.requestAnimationFrame(step);
+    };
+    window.requestAnimationFrame(step);
+  }
+  
+  function hideDashHistory() { document.getElementById('dashHistoryContainer').classList.add('hidden'); }
+</script>
