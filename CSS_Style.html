@@ -1,0 +1,179 @@
+<script>
+  // ⚡ J.A.R.V.I.S. Fix: เพิ่ม Safelist บังคับให้ Tailwind สร้างสีเตรียมไว้สำหรับ Javascript เสมอ!
+  tailwind.config = {
+    theme: { extend: { colors: { brandDark: '#06245C', brandBlue: '#2563eb', brandGray: '#f8fafc' } } },
+    safelist: [
+      'from-amber-50/50', 'border-amber-400', 'ring-amber-200', 'text-amber-500', 'text-amber-600',
+      'from-red-50/50', 'border-red-500', 'ring-red-200', 'text-red-600', 'text-red-700', 'text-red-500',
+      'from-blue-50/50', 'border-blue-400', 'ring-blue-200', 'text-blue-500', 'text-blue-700', 'text-blue-400',
+      'from-gray-50', 'border-gray-300', 'text-gray-300', 'text-gray-400',
+      'animate-[pulse_2s_ease-in-out_infinite]', 'opacity-60', 'grayscale'
+    ]
+  }
+</script>
+
+<style>
+  *, body, input, button, select, textarea, .swal2-popup { font-family: 'Noto Sans Thai', sans-serif !important; }
+ 
+  /* 🌟 FIX จุดที่ 3: กระชับพื้นที่ช่องกรอกให้ดูต่อเนื่องขึ้น (1.6rem กำลังสวย ไม่ทับเส้นบน) */
+  .wave-group { position: relative; width: 100%; margin-top: 1.6rem; margin-bottom: 0.25rem; }
+ 
+  .wave-input { display: block; width: 100%; padding: 0.85rem 1rem; font-size: 1rem; color: #1f2937; background-color: #ffffff; border: 2px solid #e5e7eb; border-radius: 0.75rem; transition: border-color 0.2s ease; appearance: none; -webkit-appearance: none; }
+  .wave-input:focus { outline: none; border-color: #2563eb; background-color: #ffffff; }
+  .wave-input.input-error { border-color: #ef4444; background-color: #fef2f2; }
+ 
+  /* 🌟 FIX สระจมตอนอยู่ในช่อง: ปรับ top เล็กน้อย และใส่ padding-top ให้มีพื้นที่เพดานเสมอ */
+  .wave-label { position: absolute; left: 1rem; top: 0.5rem; display: flex; pointer-events: none; background-color: transparent; padding: 0 0.25rem; font-weight: 600; font-size: 0.95rem; color: #9ca3af; white-space: nowrap; z-index: 5; }
+  .wave-label span { transition: 0.4s ease-in-out; display: inline-block; line-height: normal; padding-top: 6px; padding-bottom: 2px; }
+ 
+  .wave-label span:first-child { padding-left: 6px; margin-left: -6px; border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+  .wave-label span:last-child { padding-right: 6px; margin-right: -6px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+ 
+  /* 🌟 FIX ตัวอักษรถ่าง: เอา padding: 0 8px ตรงนี้ออก เพื่อไม่ให้มันถ่างอักษรทุกตัว */
+  .wave-input:focus ~ .wave-label span,
+  input.wave-input:not(:placeholder-shown) ~ .wave-label span,
+  textarea.wave-input:not(:placeholder-shown) ~ .wave-label span,
+  .wave-input.has-value ~ .wave-label span {
+    transform: translateY(-24px);
+    font-size: 0.85rem;
+    font-weight: 500;
+    background-color: #ffffff;
+    border-radius: 6px;
+  }
+ 
+  .wave-input:focus ~ .wave-label span { color: #2563eb; font-weight: 600; }
+ 
+  .wave-input:not(:focus).has-value ~ .wave-label span,
+  input.wave-input:not(:focus):not(:placeholder-shown) ~ .wave-label span,
+  textarea.wave-input:not(:focus):not(:placeholder-shown) ~ .wave-label span { color: #6b7280; }
+ 
+  .wave-input.input-error ~ .wave-label span { color: #ef4444; font-weight: 600; }
+
+  .select-arrow { pointer-events: none; position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #9ca3af; transition: color 0.2s; z-index: 10; }
+  .wave-input:focus ~ .select-arrow { color: #2563eb; }
+
+  .btn-gradient { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); transition: all 0.2s; }
+  .btn-gradient:hover { box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3); }
+  .btn-gradient:active { transform: scale(0.97); }
+  .btn-outline { @apply border-2 border-gray-300 text-gray-600 hover:bg-gray-100 rounded-xl px-6 py-3 font-bold transition-all; }
+ 
+  @keyframes bounceH { 0%, 100% { transform: translate(0, -50%); } 50% { transform: translate(5px, -50%); } }
+  .animate-bounce-h { animation: bounceH 1.5s infinite; }
+  @keyframes runningArrow { 0% { opacity: 0.3; transform: translateX(-4px); } 50% { opacity: 1; transform: translateX(4px); } 100% { opacity: 0.3; transform: translateX(-4px); } }
+  .active-arrow { animation: runningArrow 1s infinite ease-in-out; color: #2563eb !important; }
+  @keyframes bounceRight { 0%, 100% { transform: translateX(0); opacity: 0.8; } 50% { transform: translateX(5px); opacity: 1; } }
+  .animate-bounce-right { animation: bounceRight 1.2s infinite ease-in-out; }
+
+  .app-view { display: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
+  .app-view.active { display: block; opacity: 1; }
+ 
+  input::-webkit-calendar-picker-indicator { opacity: 0; }
+
+  /* ==========================================
+     🎯 SMART DROPDOWN MODULE (CSS แกนหลัก)
+     ========================================== */
+  .smart-dropdown-container { position: relative; width: 100%; }
+ 
+  /* 🎯 ปรับให้กรอบ Dropdown เด่นชัดขึ้น พร้อมเงาแบบมีมิติ */
+  .smart-dropdown-list {
+    position: absolute; top: 100%; left: 0; width: 100%;
+    background: white;
+    border: 2px solid #60a5fa; /* เส้นขอบหนา 2px โทนสีฟ้าให้ชัดเจนขึ้น */
+    border-radius: 12px;
+    box-shadow: 0 12px 25px -5px rgba(37, 99, 235, 0.2); /* เพิ่มเงาสะท้อนสีฟ้าให้ดูลอยเด่น */
+    max-height: 220px; overflow-y: auto; z-index: 999;
+    margin-top: 6px; display: none;
+  }
+  .smart-dropdown-list.active { display: block; animation: fadeInDown 0.2s ease-out; }
+ 
+  .smart-dropdown-item {
+    padding: 10px 14px; font-size: 13.5px; font-weight: 600; color: #4b5563;
+    cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: all 0.2s;
+  }
+  .smart-dropdown-item:last-child { border-bottom: none; }
+  .smart-dropdown-item:hover { background-color: #eff6ff; color: #2563eb; padding-left: 18px; }
+  .smart-dropdown-item.add-new { color: #2563eb; background-color: #f0f7ff; font-weight: 800; border-top: 1px solid #dbeafe; }
+ 
+  @keyframes fadeInDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ======================================================================== */
+  /* J.A.R.V.I.S.(Pro) - ซ่อนปฏิทิน Native ของเบราว์เซอร์ แต่คง Hitbox ไว้รับแรงกด */
+  /* ======================================================================== */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+  }
+  input[type="date"]::-webkit-inner-spin-button,
+  input[type="date"]::-webkit-clear-button {
+    display: none;
+  }
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* ======================================================================== */
+  /* 👇 J.A.R.V.I.S.(Pro) Fix: ระบบ Wave Label ช่องวันที่ (เวอร์ชันสมบูรณ์ที่สุด) 👇 */
+  /* ======================================================================== */
+  
+  /* 1. ซ่อนโครงสร้าง วว/ดด/ปป ของเบราว์เซอร์เมื่อช่องว่างเปล่า */
+  input[type="date"].wave-input::-webkit-datetime-edit {
+    color: transparent !important;
+  }
+  input[type="date"].wave-input:focus::-webkit-datetime-edit,
+  input[type="date"].wave-input.has-value::-webkit-datetime-edit {
+    color: #2563eb !important; /* สีน้ำเงิน Brand */
+  }
+  
+  /* 2. บังคับดึง "ตัวหนังสือ (span)" กลับลงมาตอนช่องว่าง */
+  input[type="date"].wave-input:not(:focus):not(.has-value) ~ .wave-label span {
+    transform: translateY(0) !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    background-color: transparent !important;
+    color: #9ca3af !important;
+  }
+
+  /* ======================================================================== */
+  /* 👇 ⚡ J.A.R.V.I.S.(Pro) Dashboard Ultimate Fixes 👇 */
+  /* ======================================================================== */
+  
+  /* ทำให้การสลับสีของการ์ด Dashboard ลื่นไหลไม่กระตุก */
+  .card-dynamic {
+    transition: all 0.4s ease-in-out;
+  }
+  
+  /* บังคับให้กราฟ ApexCharts ใช้ฟอนต์ภาษาไทย Noto Sans Thai ทั้งหมก */
+  .apexcharts-text, .apexcharts-tooltip-text, .apexcharts-datalabel {
+    font-family: 'Noto Sans Thai', sans-serif !important;
+  }
+
+  /* ======================================================================== */
+  /* 🌟 J.A.R.V.I.S.(Pro) FEATURE: ไฟวิ่งขอบการ์ด (Running Light Border) 🌟 */
+  /* ======================================================================== */
+  .run-light-card { position: relative; overflow: hidden; }
+  .run-light-card::before { 
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background-color: var(--line-bg); z-index: 1; 
+  }
+  .run-light-card::after { 
+      content: ''; position: absolute; left: 0; top: -100%; width: 4px; height: 100%; 
+      background: linear-gradient(to bottom, transparent 0%, var(--line-color) 80%, #ffffff 100%); 
+      box-shadow: 0 0 12px var(--line-color); z-index: 2; 
+      animation: runningBorder 2.5s ease-in-out infinite; 
+      animation-delay: var(--delay, 0s); /* ดีเลย์ไฟวิ่งให้ไม่พร้อมกัน */
+  }
+  
+  /* ชุดสีไฟวิ่งประจำการ์ด */
+  .light-amber { --line-bg: #fef3c7; --line-color: #f59e0b; }
+  .light-red { --line-bg: #fee2e2; --line-color: #ef4444; }
+  .light-blue { --line-bg: #dbeafe; --line-color: #3b82f6; }
+  .light-cyan { --line-bg: #cffafe; --line-color: #06b6d4; }
+  .light-emerald { --line-bg: #d1fae5; --line-color: #10b981; }
+
+  @keyframes runningBorder {
+      0% { top: -100%; opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+  }
+</style>
