@@ -1,0 +1,255 @@
+<div id="view-maintenance" class="app-view hidden">
+  
+  <style>
+    /* 1. สไตล์ช่องกรอกแบบ Textarea (Smart Cursor) */
+    #maintenanceForm .wave-group .wave-textarea { background-color: transparent !important; resize: none; min-height: 52px; height: 52px; overflow-y: hidden; display: block; line-height: 1.5; padding-top: 18px; padding-bottom: 10px; }
+    #maintenanceForm .wave-textarea.has-value { color: #2563eb !important; font-weight: 700 !important; }
+    #maintenanceForm .wave-textarea:-webkit-autofill, #maintenanceForm .wave-textarea:-webkit-autofill:hover, #maintenanceForm .wave-textarea:-webkit-autofill:focus, #maintenanceForm .wave-textarea:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 30px transparent inset !important; transition: background-color 5000s ease-in-out 0s; -webkit-text-fill-color: #2563eb !important; font-weight: 700 !important; }
+
+    /* 2. CSS Morphing Button (QR & Mic) */
+    #mtMicBtn { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; transform: scale(0.5) rotate(-90deg); visibility: hidden; position: absolute; right: 0; top: 0; }
+    #mtQrBtn { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 1; transform: scale(1) rotate(0deg); visibility: visible; }
+    #maintenanceForm .mt-input-container:focus-within #mtQrBtn { opacity: 0; transform: scale(0.5) rotate(90deg); visibility: hidden; }
+    #maintenanceForm .mt-input-container:focus-within #mtMicBtn { opacity: 1; transform: scale(1) rotate(0deg); visibility: visible; }
+
+    /* 3. CSS Animation: ปุ่มบันทึกมีชีวิต */
+    @keyframes pulse-blue-glow { 0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); transform: scale(1); } 50% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); transform: scale(1); } }
+    #mtSubmitBtn { animation: pulse-blue-glow 2s infinite; transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); } #mtSubmitBtn:active { transform: scale(0.94) !important; animation: none; }
+    
+    /* 4. CSS Animation: ลูกศรไฟวิ่ง */
+    @keyframes run-arrow-left { 0%, 100% { transform: translateX(-4px) scale(0.9); opacity: 0.3; text-shadow: none; } 50% { transform: translateX(4px) scale(1.1); opacity: 1; text-shadow: 0 0 12px rgba(255,255,255,1); } }
+    @keyframes run-arrow-right { 0%, 100% { transform: translateX(4px) scale(0.9); opacity: 0.3; text-shadow: none; } 50% { transform: translateX(-4px) scale(1.1); opacity: 1; text-shadow: 0 0 12px rgba(255,255,255,1); } }
+    .arr-left span { display: inline-block; animation: run-arrow-left 0.7s infinite ease-in-out; } .arr-left span:nth-child(1) { animation-delay: 0s; } .arr-left span:nth-child(2) { animation-delay: 0.15s; }
+    .arr-right span { display: inline-block; animation: run-arrow-right 0.7s infinite ease-in-out; } .arr-right span:nth-child(1) { animation-delay: 0.15s; } .arr-right span:nth-child(2) { animation-delay: 0s; }
+
+    /* 5. Custom Animation: มือเด้งย่อยุบๆ */
+    @keyframes jarvisPulseBlink { 0% { transform: scale(1) translateY(0); opacity: 1; } 50% { transform: scale(0.8) translateY(-5px); opacity: 0.5; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+    .animate-jarvis-hand { display: inline-block; animation: jarvisPulseBlink 0.6s ease-in-out infinite; margin-right: 8px; font-size: 1.5em; }
+
+    /* 6. J.A.R.V.I.S. Floating Hint */
+    @keyframes holo-pop-in { 0% { opacity: 0; transform: translate(-50%, -20px) scale(0.8); } 70% { transform: translate(-50%, 0) scale(1.05); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+    @keyframes holo-fade-out { 0% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -30px) scale(0.8); } }
+    
+    .jarvis-floating-hint {
+      position: fixed !important; left: 50% !important; top: 42% !important; bottom: auto !important; z-index: 99999 !important;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(37, 99, 235, 0.2); border-left: 5px solid #2563eb; 
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2); border-radius: 16px; 
+      padding: 12px 18px; display: flex; align-items: center; justify-content: center; gap: 10px; 
+      font-size: 0.95rem; font-weight: 700; color: #1e3a8a;
+      width: 90%; max-width: 330px; white-space: normal; line-height: 1.4; text-align: left;
+      animation: holo-pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; pointer-events: none; 
+    }
+    .jarvis-floating-hint.fade-out { animation: holo-fade-out 0.4s ease-in forwards; }
+
+    /* 7. J.A.R.V.I.S. Trick: ซ่อน Dropdown Placeholder */
+    #maintenanceForm select.wave-input:invalid { color: transparent !important; -webkit-text-fill-color: transparent !important; }
+    #maintenanceForm select.wave-input option { color: #1f2937 !important; -webkit-text-fill-color: initial !important; }
+    #maintenanceForm select.wave-input:valid { color: #2563eb !important; -webkit-text-fill-color: #2563eb !important; font-weight: 700 !important; }
+  </style>
+
+  <div id="maintenanceLoading" class="hidden flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm mb-4">
+    <div class="relative w-20 h-20 flex items-center justify-center">
+      <div class="absolute inset-0 rounded-full border-t-4 border-[#04d4d4] animate-spin"></div>
+      <div class="absolute inset-2 rounded-full border-r-4 border-blue-400 animate-spin" style="animation-direction: reverse;"></div>
+      <svg class="w-10 h-10 text-[#04d4d4] relative z-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+      </svg>
+    </div>
+    <p class="mt-6 text-[#0000FF] font-bold tracking-widest animate-pulse uppercase">S.A.M. Processing...</p>
+  </div>
+
+  <form id="maintenanceForm" class="bg-white p-5 sm:p-7 rounded-3xl shadow-lg border border-gray-100">
+    <h3 class="text-2xl font-bold text-brandDark mb-5 flex items-center justify-center gap-2"><span>🛠️</span> Maintenance / PM</h3>
+    
+    <div class="space-y-3"> 
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+        
+        <div>
+          <div class="relative z-20">
+            <div class="wave-group mt-input-container relative !mb-0"> 
+              
+              <textarea id="mtAssetId" required autocomplete="off" 
+                        class="wave-textarea wave-input font-bold pr-[85px]" 
+                        rows="1" placeholder=" "
+                        oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'; if(this.value.trim() !== '') { this.classList.add('has-value'); document.getElementById('mtClearBtn').classList.remove('hidden'); document.getElementById('mtDropdownToggleBtn').classList.add('hidden'); } else { this.classList.remove('has-value'); document.getElementById('mtClearBtn').classList.add('hidden'); document.getElementById('mtDropdownToggleBtn').classList.remove('hidden'); }"></textarea>
+              <label class="wave-label">รหัส / ชื่อทรัพย์สินที่ซ่อม*</label>
+
+              <div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10">
+                <button type="button" id="mtDropdownToggleBtn" onclick="toggleMtDropdown()" class="w-8 h-8 text-gray-400 hover:text-brandBlue bg-white border border-gray-200 rounded-lg flex items-center justify-center transition-all shadow-sm">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <button type="button" id="mtClearBtn" onclick="clearMtAsset(); document.getElementById('mtAssetId').style.height='';" class="hidden w-8 h-8 bg-red-100 text-red-500 hover:bg-red-200 hover:text-red-700 rounded-lg flex items-center justify-center transition-all shadow-sm">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+
+                <div class="relative w-10 h-10">
+                  <button type="button" id="mtMicBtn" onclick="startVoiceSearchMt()" class="w-10 h-10 bg-gradient-to-br from-green-50 to-green-100 text-green-600 rounded-xl shadow-[2px_2px_5px_rgba(0,0,0,0.1),-1px_-1px_5px_rgba(255,255,255,0.9)] hover:shadow-inner transition-all flex items-center justify-center group active:scale-90 border border-white/50 focus:outline-none" title="ค้นหาด้วยเสียง">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                  </button>
+                  <button type="button" id="mtQrBtn" onclick="openQRScanner('mtAssetId')" class="w-10 h-10 bg-gradient-to-br from-white to-gray-100 text-brandBlue rounded-xl shadow-[2px_2px_5px_rgba(0,0,0,0.1),-1px_-1px_5px_rgba(255,255,255,0.9)] hover:shadow-inner transition-all flex items-center justify-center group active:scale-90 border border-white/50 focus:outline-none" title="สแกน QR Code">
+                    <div class="relative w-6 h-6 flex items-center justify-center">
+                      <svg class="w-full h-full text-brandBlue/70 group-hover:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2m0 10v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9"></path></svg>
+                      <span class="absolute inset-0 rounded-full border-2 border-brandBlue/30 animate-ping"></span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <ul id="mtCustomDropdown" class="hidden absolute top-[50px] left-0 w-full bg-white border-2 border-brandBlue/20 rounded-xl shadow-xl max-h-56 overflow-y-auto z-50 divide-y divide-gray-100"></ul>
+
+            <div id="mtPreviewContainer" class="mt-3 w-full border border-dashed border-gray-300 bg-gray-50 rounded-xl flex flex-col items-center justify-center overflow-hidden transition-all duration-500 h-20 shadow-sm">
+               <div id="mtPreviewPlaceholder" class="flex flex-col items-center justify-center text-gray-400 transition-opacity duration-300">
+                  <svg class="w-6 h-6 mb-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  <span id="mtPreviewText" class="text-xs font-medium tracking-wide">รอรหัสเพื่อโหลดรูปภาพ...</span>
+               </div>
+               <img id="mtPreviewImg" src="" alt="Asset Preview" class="w-full h-full object-contain hidden transition-opacity duration-500">
+            </div>
+          </div>
+        </div>
+
+        <div class="wave-group !mb-0 relative">
+          <input type="date" id="mtDate" required class="wave-input bg-white cursor-pointer pr-[85px] font-bold text-brandBlue" placeholder=" " 
+                 onclick="this.showPicker()" 
+                 oninput="handleDateInput(this)" 
+                 onfocus="toggleDateIcons(this, true)" 
+                 onblur="toggleDateIcons(this, false)">
+          <label class="wave-label">วันที่ดำเนินการ*</label>
+          
+          <div class="absolute right-1.5 top-1/2 transform -translate-y-1/2 flex items-center gap-1.5 z-10 pointer-events-none">
+            
+            <button type="button" id="mtDateClearBtn" onclick="clearDateInput(this, 'mtDate')" class="hidden pointer-events-auto w-8 h-8 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700 rounded-full flex items-center justify-center transition-all shadow-sm border border-red-100">
+               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="relative flex items-center justify-center w-8 h-8">
+              <div id="mtDateCalIcon" class="absolute inset-0 flex items-center justify-center text-brandBlue transition-all duration-300">
+                 <svg class="w-6 h-6 text-brandBlue animate-ping opacity-75 absolute" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                 <svg class="w-6 h-6 text-brandBlue relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              </div>
+              
+              <div id="mtDateChevronIcon" class="absolute inset-0 hidden flex items-center justify-center text-brandBlue transition-all duration-300">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"></path></svg>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <div class="flex flex-col justify-end">
+        <div class="wave-group relative !mb-0 smart-dropdown-container" id="mtTypeContainer" data-allow-other="true">
+          <input type="text" id="mtTypeDisplay" class="wave-input bg-white pr-16" placeholder=" " autocomplete="off">
+          <label class="wave-label">ประเภทงาน*</label>
+          <input type="hidden" id="mtType">
+          
+          <button type="button" id="mtType_toggleBtn" onclick="toggleSmartDropdown('mtType')" class="absolute right-2 top-[12px] w-7 h-7 flex items-center justify-center text-brandBlue bg-blue-50/50 hover:bg-blue-100 rounded-full transition-all z-10" style="animation: pulse-blue-glow 2s infinite;">
+             <svg id="mtType_arrowIcon" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+          </button>
+
+          <button type="button" id="clear_mtType_dropdown" class="input-clear-btn hidden absolute right-10 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-full flex items-center justify-center transition-all z-20" onclick="clearSmartDropdown('mtType')"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          
+          <ul id="mtTypeCustomList" class="smart-dropdown-list"></ul>
+        </div>
+        
+        <div class="wave-group relative hidden !mt-1" id="new_mtType">
+           <textarea id="new_mtType_input" class="wave-textarea wave-input bg-blue-50 pr-8" rows="1" placeholder=" " oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'; toggleInputClearBtn(this)"></textarea>
+           <label class="wave-label">พิมพ์ประเภทงานใหม่*</label>
+           <button type="button" class="input-clear-btn hidden absolute right-2 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="wave-group !mb-0"><textarea id="mtDetails" rows="2" class="wave-input resize-none" placeholder=" "></textarea><label class="wave-label">รายละเอียดการซ่อม/เปลี่ยนอะไหล่</label></div>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+        <div class="wave-group !mb-0"><input type="number" id="mtCost" class="wave-input" placeholder=" "><label class="wave-label">ค่าใช้จ่าย (บาท)</label></div>
+        
+        <div class="flex flex-col justify-end">
+          <div class="wave-group relative !mb-0 smart-dropdown-container" id="mtTechnicianSelectContainer" data-allow-other="true">
+            <input type="text" id="mtTechnicianSelectDisplay" class="wave-input bg-white pr-16" placeholder=" " autocomplete="off">
+            <label class="wave-label">ชื่อช่าง/ผู้บันทึก*</label>
+            <input type="hidden" id="mtTechnicianSelect">
+            
+            <button type="button" id="mtTechnicianSelect_toggleBtn" onclick="toggleSmartDropdown('mtTechnicianSelect')" class="absolute right-2 top-[12px] w-7 h-7 flex items-center justify-center text-brandBlue bg-blue-50/50 hover:bg-blue-100 rounded-full transition-all z-10" style="animation: pulse-blue-glow 2s infinite;">
+               <svg id="mtTechnicianSelect_arrowIcon" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+
+            <button type="button" id="clear_mtTechnicianSelect_dropdown" class="input-clear-btn hidden absolute right-10 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-full flex items-center justify-center transition-all z-20" onclick="clearSmartDropdown('mtTechnicianSelect')"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            
+            <ul id="mtTechnicianSelectCustomList" class="smart-dropdown-list"></ul>
+          </div>
+          
+          <div class="wave-group relative hidden !mt-1" id="new_mtTechnicianSelect">
+             <textarea id="new_mtTechnicianSelect_input" class="wave-textarea wave-input bg-blue-50 pr-8" rows="1" placeholder=" " oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'; toggleInputClearBtn(this)"></textarea>
+             <label class="wave-label">พิมพ์ชื่อช่าง/ผู้บันทึกใหม่*</label>
+             <button type="button" class="input-clear-btn hidden absolute right-2 top-[14px] w-6 h-6 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-full flex items-center justify-center transition-all z-20" onclick="clearInputField(this)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-5 rounded-2xl border-2 border-dashed border-brandBlue/40 shadow-sm relative overflow-hidden mt-4">
+        <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-50 pointer-events-none"></div>
+        
+        <div class="mb-4 relative z-10 border-b border-blue-200/50 pb-3">
+          
+          <div class="flex items-center justify-center gap-2 mb-3">
+            <div class="p-1.5 bg-white rounded-lg shadow-sm border border-blue-100 flex items-center justify-center">
+               <svg class="w-5 h-5 text-brandBlue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <h4 class="text-brandDark font-bold text-lg leading-tight">ข้อมูลรอบซ่อมบำรุง</h4>
+          </div>
+
+          <div class="flex items-center justify-between px-1">
+            <span class="text-[13px] text-brandBlue font-bold bg-blue-100/70 px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Smart PM.
+            </span>
+            <span id="pmStatusBadge" class="whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-wider bg-gray-200 text-gray-500 shadow-sm transition-colors duration-300 inline-block">รอรหัส...</span>
+          </div>
+          
+        </div>
+        
+        <div class="flex flex-col gap-2 relative z-10">
+          <div class="flex justify-between items-center bg-white px-4 py-2.5 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-white">
+            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">ระยะการทำ PM.</p>
+            <p id="pmIntervalDisplay" class="text-sm font-bold text-brandDark">-</p>
+          </div>
+
+          <div class="flex justify-between items-center bg-white px-4 py-2.5 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-white">
+            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">ทำ PM. ล่าสุด</p>
+            <p id="pmLastDateDisplay" class="text-sm font-bold text-gray-600">-</p>
+          </div>
+
+          <div class="flex justify-between items-center bg-brandBlue px-4 py-2.5 rounded-xl shadow-[0_4px_15px_rgba(37,99,235,0.2)] border border-blue-500 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-16 h-16 bg-white opacity-10 rounded-full -mr-8 -mt-8 pointer-events-none"></div>
+            <div class="flex items-center gap-2 relative z-10">
+              <div class="w-2 h-2 bg-yellow-400 rounded-full animate-ping"></div>
+              <p class="text-xs text-blue-100 font-bold uppercase tracking-wider">รอบ PM. ถัดไป</p>
+            </div>
+            <input type="text" id="mtNextDate" class="w-32 bg-transparent text-right text-white font-bold text-[15px] outline-none relative z-10" placeholder="-" readonly>
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-4">
+        <div class="bg-[#f8faff] p-4 rounded-2xl border-2 border-dashed border-brandBlue/40 shadow-sm transition-all hover:border-brandBlue hover:bg-[#f0f4ff]">
+          <label class="block text-xs font-bold text-brandBlue mb-2 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg> แนบรูปการ ซ่อม/PM. (ถ่ายรูป/เลือกรูป|ถ้ามี)
+          </label>
+          <div class="relative flex items-center">
+            <input type="file" id="mtImage" accept="image/*,application/pdf" onchange="toggleClearButton('mtImage')" class="w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-100 file:text-brandBlue hover:file:bg-blue-200 border-2 border-blue-200 focus:border-brandBlue shadow-md rounded-lg bg-white cursor-pointer pr-10 relative z-0 transition-all outline-none">
+            <button type="button" id="clear_mtImage" onclick="clearFile('mtImage')" class="absolute right-1 top-1/2 transform -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-red-100 text-red-500 hover:bg-red-200 hover:text-red-700 rounded-full hidden transition-all shadow-sm z-20"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="mt-6 pt-4 border-t border-gray-100">
+      <button type="button" id="mtSubmitBtn" onclick="submitMaintenance()" class="w-full btn-gradient text-white rounded-xl px-6 py-4 font-bold text-lg flex justify-center items-center gap-4 shadow-lg transition-all">
+        <span class="arr-left tracking-tighter opacity-90"><span class="text-xl">&gt;</span><span class="text-xl">&gt;</span></span><span class="relative z-10">บันทึกประวัติซ่อมบำรุง</span><span class="arr-right tracking-tighter opacity-90"><span class="text-xl">&lt;</span><span class="text-xl">&lt;</span></span>
+      </button>
+    </div>
+  </form>
+</div>
