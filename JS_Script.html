@@ -31,7 +31,7 @@
       
       var currentSubtitle = document.getElementById('headerSubtitle') ? document.getElementById('headerSubtitle').innerText : "";
       
-      if (currentSubtitle.includes("Command Center") || currentSubtitle.includes("Dashboard")) {
+      if (currentSubtitle.includes("Dashboard Center") || currentSubtitle.includes("Dashboard")) {
           speakAI('ระบบเสียงเปิดใช้งานแล้วค่ะ, โหมดข้อมูล Dashboard พร้อมใช้งานค่ะ');
       } else if (currentSubtitle.includes("Asset Registration")) {
           speakAI('ระบบเสียงเปิดใช้งานแล้วค่ะ, สำหรับการขึ้นทะเบียนสินทรัพย์ใหม่, กรุณากรอกข้อมูลให้ครบทั้ง 4 หน้าตามลำดับนะค่ะ');
@@ -142,95 +142,212 @@
     }, 1500); 
   }
 
-  // --- ฟังก์ชันอื่นๆ (switchView, toggleSidebar, switchBorrowTab) ของคุณทำงานตามเดิม --- //
+// --- ฟังก์ชันอื่นๆ (switchView, toggleSidebar, switchBorrowTab) ของคุณทำงานตามเดิม --- //
+// =======================================================
+// 🌟 J.A.R.V.I.S. HOLOGRAPHIC MENU & SIDEBAR (HOTFIX)
+// =======================================================
 
-  // ⚡ สลับหน้าจอเมนูหลัก (พร้อมรองรับ GMRL)
-  function switchView(viewName) {
-    try {
-      if (viewName === 'dashboard') {
-        if (typeof loadDashboardData === 'function') loadDashboardData();
-      }
-      // ⚡ J.A.R.V.I.S. Update: รองรับหน้า GMRL
-      if (viewName === 'gmrl') {
-        if (typeof initGmrlPage === 'function') initGmrlPage();
-      }
-    } catch (e) {
-      console.error("View Trigger Error:", e);
+// 1. ระบบสลับหน้าจอ (Holographic Transition)
+function switchView(viewName) {
+  try {
+    if (viewName === 'dashboard') { if (typeof loadDashboardData === 'function') loadDashboardData(); }
+    if (viewName === 'gmrl') { if (typeof initGmrlPage === 'function') initGmrlPage(); }
+  } catch (e) { console.error("View Trigger Error:", e); }
+
+  document.querySelectorAll('.menu-item').forEach(function(el) {
+    el.classList.remove('bg-blue-50', 'text-brandBlue', 'font-bold', 'border-r-4', 'border-brandBlue', 'active-menu');
+    el.classList.add('text-gray-600', 'font-semibold');
+  });
+
+  var menu = document.getElementById('menu-' + viewName);
+  if(menu) {
+    menu.classList.remove('text-gray-600', 'font-semibold');
+    menu.classList.add('bg-blue-50', 'text-brandBlue', 'font-bold', 'border-r-4', 'border-brandBlue', 'active-menu');
+  }
+
+  var subtitle = document.getElementById('headerSubtitle');
+  if(subtitle) {
+      if(viewName==='asset') { subtitle.innerText = "Asset Registration"; if(typeof speakAI === 'function') speakAI("โหมด ขึ้นทะเบียนอุปกรณ์และเครื่องมือ พร้อมใช้งานค่ะ"); }
+      if(viewName==='maintenance') { subtitle.innerText = "Maintenance / PM"; if(typeof speakAI === 'function') speakAI("โหมด บันทึกซ่อมบำรุง และ พีเอ็ม พร้อมใช้งานค่ะ"); }
+      if(viewName==='borrow') { subtitle.innerText = "Borrow / Return"; if(typeof speakAI === 'function') speakAI("โหมด ยืมคืนอุปกรณ์และเครื่องมือ พร้อมใช้งานค่ะ"); }
+      if(viewName==='transfer') { subtitle.innerText = "Transfer Asset"; if(typeof speakAI === 'function') speakAI("โหมด โอนย้ายสินทรัพย์ระหว่างสาขา พร้อมใช้งานค่ะ"); }
+      if(viewName==='dashboard') { subtitle.innerText = "Dashboard Center"; if(typeof speakAI === 'function') speakAI("ยินดีต้อนรับเข้าสู่โหมด Smart Dashboard นะค่ะ"); }
+      if(viewName==='reprint-tag') { subtitle.innerText = "Reprint Asset Tag"; if(typeof speakAI === 'function') speakAI("โหมด สร้างป้าย Tag QR ทดแทน พร้อมใช้งานค่ะ"); }
+      if(viewName==='gmrl') { subtitle.innerText = "General Repair Log"; if(typeof speakAI === 'function') speakAI("โหมด บันทึกงานซ่อมบำรุงทั่วไป พร้อมใช้งานค่ะ"); }
+  }
+
+  var target = document.getElementById('view-' + viewName);
+  var activeViews = [];
+
+  document.querySelectorAll('.app-view').forEach(function(el) {
+    if(el.style.display !== 'none' && el.id !== ('view-' + viewName)) {
+      activeViews.push(el);
+      el.style.transition = 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+      el.style.transform = 'scale(0.96) translateY(-15px)';
+      el.style.opacity = '0';
+      el.classList.remove('active');
     }
+  });
 
-    document.querySelectorAll('.app-view').forEach(function(el) { el.classList.remove('active'); setTimeout(function() { el.style.display = 'none'; }, 300); });
-    document.querySelectorAll('.menu-item').forEach(function(el) { el.classList.remove('bg-blue-50', 'text-brandBlue', 'font-bold', 'border-r-4', 'border-brandBlue'); el.classList.add('text-gray-600', 'font-semibold'); });
+  setTimeout(function() {
+    activeViews.forEach(function(el) { el.style.display = 'none'; });
+
+    if(target) {
+      target.style.display = 'block';
+      target.style.transition = 'none';
+      target.style.transform = 'scale(1.03) translateY(25px)';
+      target.style.opacity = '0';
+
+      void target.offsetWidth;
+
+      target.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      target.style.transform = 'scale(1) translateY(0)';
+      target.style.opacity = '1';
+      target.classList.add('active');
+    }
+  }, 350);
+
+  var overlay = document.getElementById('sidebarOverlay');
+  if(overlay && !overlay.classList.contains('hidden')) {
+      toggleSidebar(); 
+  }
+
+  if(typeof checkScrollIndicator === 'function') setTimeout(checkScrollIndicator, 600);
+}
+
+// 2. ระบบสลับแท็บ ยืม/คืน
+function switchBorrowTab(tab) {
+  var btnB = document.getElementById('tabBorrow'); var btnR = document.getElementById('tabReturn');
+  var formB = document.getElementById('borrowForm'); var formR = document.getElementById('returnForm');
+
+  var hideForm = tab === 'borrow' ? formR : formB;
+  var showForm = tab === 'borrow' ? formB : formR;
+
+  if (tab === 'borrow') {
+    if(btnB) btnB.className = "flex-1 py-3 text-sm font-bold rounded-lg bg-white shadow-sm border-2 border-brandBlue text-brandBlue transition-all";
+    if(btnR) btnR.className = "flex-1 py-3 text-sm font-bold rounded-lg border-2 border-transparent text-gray-500 hover:text-brandDark transition-all";
+  } else {
+    if(btnR) btnR.className = "flex-1 py-3 text-sm font-bold rounded-lg bg-white shadow-sm border-2 border-brandBlue text-brandBlue transition-all";
+    if(btnB) btnB.className = "flex-1 py-3 text-sm font-bold rounded-lg border-2 border-transparent text-gray-500 hover:text-brandDark transition-all";
+    google.script.run.withSuccessHandler(populateOpenTransList).getOpenTransactions();
+  }
+
+  if (hideForm && !hideForm.classList.contains('hidden')) {
+    hideForm.style.transition = 'all 0.25s ease-out';
+    hideForm.style.opacity = '0';
+    hideForm.style.transform = tab === 'borrow' ? 'translateX(20px)' : 'translateX(-20px)';
+
+    setTimeout(function() {
+      hideForm.classList.add('hidden');
+      if(showForm) {
+        showForm.classList.remove('hidden');
+        showForm.style.transition = 'none';
+        showForm.style.opacity = '0';
+        showForm.style.transform = tab === 'borrow' ? 'translateX(-20px)' : 'translateX(20px)';
+
+        void showForm.offsetWidth;
+
+        showForm.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        showForm.style.opacity = '1';
+        showForm.style.transform = 'translateX(0)';
+      }
+    }, 250);
+  } else if (showForm && showForm.classList.contains('hidden')) {
+     showForm.classList.remove('hidden');
+  }
+  setTimeout(checkScrollIndicator, 400);
+}
+
+// 2.1 ⚡ สลับแท็บ ขึ้นทะเบียนใหม่ / รับโอนเข้า (🌟 J.A.R.V.I.S. Cinematic Smooth Glide)
+function switchAssetTab(tab) {
+  var btnNew = document.getElementById('tabNewAsset');     
+  var btnTransfer = document.getElementById('tabTransferIn'); 
+  var formNew = document.getElementById('newAssetForm');   
+  var formTransfer = document.getElementById('transferInForm'); 
+
+  var hideForm = tab === 'new' ? formTransfer : formNew;
+  var showForm = tab === 'new' ? formNew : formTransfer;
+
+  // ป้องกันการกดแท็บเดิมซ้ำ
+  if (showForm && !showForm.classList.contains('hidden')) return;
+
+  // 1. สลับสีปุ่ม
+  if (tab === 'new') {
+    if(btnNew) btnNew.className = "flex-1 py-3 text-sm font-bold rounded-lg bg-white shadow-sm border-2 border-brandBlue text-brandBlue transition-all duration-300";
+    if(btnTransfer) btnTransfer.className = "flex-1 py-3 text-sm font-bold rounded-lg border-2 border-transparent text-gray-500 hover:text-brandDark transition-all duration-300";
+  } else {
+    if(btnTransfer) btnTransfer.className = "flex-1 py-3 text-sm font-bold rounded-lg bg-white shadow-sm border-2 border-brandBlue text-brandBlue transition-all duration-300";
+    if(btnNew) btnNew.className = "flex-1 py-3 text-sm font-bold rounded-lg border-2 border-transparent text-gray-500 hover:text-brandDark transition-all duration-300";
+  }
+
+  // 🌟 2. แอนิเมชันสลับแท็บแบบ เนิบๆ สมูทๆ
+  if (hideForm && !hideForm.classList.contains('hidden')) {
+    // ขาออก: ละลายหายไปแบบนุ่มนวล (0.4s) และสไลด์ออกไปไกลขึ้นนิดนึง (60px)
+    hideForm.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'; 
+    hideForm.style.opacity = '0';
+    hideForm.style.transform = tab === 'new' ? 'translateX(60px)' : 'translateX(-60px)'; 
     
-    var target = document.getElementById('view-' + viewName); 
-    var menu = document.getElementById('menu-' + viewName); 
-    var subtitle = document.getElementById('headerSubtitle');
-    
-    if(target) setTimeout(function() { target.style.display = 'block'; setTimeout(function() { target.classList.add('active'); }, 50); }, 300);
-    if(menu) { menu.classList.remove('text-gray-600', 'font-semibold'); menu.classList.add('bg-blue-50', 'text-brandBlue', 'font-bold', 'border-r-4', 'border-brandBlue'); }
-    
-    if(subtitle) {
-        if(viewName==='asset') { subtitle.innerText = "Asset Registration"; if(typeof speakAI === 'function') speakAI("โหมด ขึ้นทะเบียนอุปกรณ์และเครื่องมือ พร้อมใช้งานค่ะ"); }
-        if(viewName==='maintenance') { subtitle.innerText = "Maintenance / PM"; if(typeof speakAI === 'function') speakAI("โหมด บันทึกซ่อมบำรุง และ พีเอ็ม พร้อมใช้งานค่ะ"); }
-        if(viewName==='borrow') { subtitle.innerText = "Borrow / Return"; if(typeof speakAI === 'function') speakAI("โหมด ยืมคืนอุปกรณ์และเครื่องมือ พร้อมใช้งานค่ะ"); }
-        if(viewName==='transfer') { subtitle.innerText = "Transfer Asset"; if(typeof speakAI === 'function') speakAI("โหมด โอนย้ายสินทรัพย์ระหว่างสาขา พร้อมใช้งานค่ะ"); }
-        if(viewName==='dashboard') { subtitle.innerText = "Command Center"; if(typeof speakAI === 'function') speakAI("ยินดีต้อนรับเข้าสู่โหมด Smart Dashboard นะค่ะ"); }
+    // หน่วงเวลาให้ตาเราเห็นตอนมันหายไปก่อน (400ms) แล้วค่อยดึงหน้าใหม่มา
+    setTimeout(function() {
+      hideForm.classList.add('hidden');
+      
+      if(showForm) {
+        showForm.classList.remove('hidden');
+        showForm.style.transition = 'none';
+        showForm.style.opacity = '0';
+        showForm.style.transform = tab === 'new' ? 'translateX(-60px)' : 'translateX(60px)'; 
         
-        // ⚡ J.A.R.V.I.S. Update: เปลี่ยน Subtitle สำหรับหน้า Reprint Tag
-        if(viewName==='reprint-tag') { 
-            subtitle.innerText = "Reprint Asset Tag"; 
-            if(typeof speakAI === 'function') speakAI("โหมด สร้างป้าย Tag QR ทดแทน พร้อมใช้งานค่ะ"); 
-        }
-        // ⚡ J.A.R.V.I.S. Update: เปลี่ยน Subtitle และ AI สำหรับหน้า GMRL
-        if(viewName==='gmrl') { 
-            subtitle.innerText = "General Repair Log"; 
-            if(typeof speakAI === 'function') speakAI("โหมด บันทึกงานซ่อมบำรุงทั่วไป พร้อมใช้งานค่ะ"); 
-        }
-    }
-
-    var overlay = document.getElementById('sidebarOverlay');
-    if(overlay && !overlay.classList.contains('hidden')) {
-        if(typeof toggleSidebar === 'function') toggleSidebar(); 
-    }
-    
-    if(typeof checkScrollIndicator === 'function') setTimeout(checkScrollIndicator, 350);
-  }
-
-  function switchBorrowTab(tab) {
-    var btnB = document.getElementById('tabBorrow'); var btnR = document.getElementById('tabReturn');
-    var formB = document.getElementById('borrowForm'); var formR = document.getElementById('returnForm');
-    if (tab === 'borrow') {
-      if(btnB) btnB.className = "flex-1 py-3 text-sm font-bold rounded-lg bg-white shadow-sm border-2 border-brandBlue text-brandBlue transition-all";
-      if(btnR) btnR.className = "flex-1 py-3 text-sm font-bold rounded-lg border-2 border-transparent text-gray-500 hover:text-brandDark transition-all";
-      if(formB) formB.classList.remove('hidden'); if(formR) formR.classList.add('hidden');
-    } else {
-      if(btnR) btnR.className = "flex-1 py-3 text-sm font-bold rounded-lg bg-white shadow-sm border-2 border-brandBlue text-brandBlue transition-all";
-      if(btnB) btnB.className = "flex-1 py-3 text-sm font-bold rounded-lg border-2 border-transparent text-gray-500 hover:text-brandDark transition-all";
-      if(formR) formR.classList.remove('hidden'); if(formB) formB.classList.add('hidden');
-      google.script.run.withSuccessHandler(populateOpenTransList).getOpenTransactions();
-    }
-    setTimeout(checkScrollIndicator, 350); 
-  }
-
-  function toggleSidebar() {
-    var sb = document.getElementById('sidebar'); var overlay = document.getElementById('sidebarOverlay');
-    var icon = document.getElementById('sidebarIcon'); var btn = document.getElementById('sidebarToggleBtn');
-    var hamburgerBtn = document.getElementById('mainNavHamburger'); 
-    var line1 = document.getElementById('navLine1'); var line2 = document.getElementById('navLine2'); var line3 = document.getElementById('navLine3');
-
-    if (sb && overlay) {
-      if (sb.classList.contains('translate-x-full')) {
-        sb.classList.remove('translate-x-full'); overlay.classList.remove('hidden');
-        if(icon) icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>'; 
-        if(btn) btn.classList.replace('opacity-40', 'opacity-100'); if(hamburgerBtn) hamburgerBtn.style.opacity = '0'; 
-        if(line1) { line1.classList.add('rotate-45', 'translate-y-[7.5px]'); if(line2) line2.classList.add('opacity-0', 'translate-x-4'); if(line3) line3.classList.add('-rotate-45', '-translate-y-[7.5px]'); }
-      } else {
-        sb.classList.add('translate-x-full'); overlay.classList.add('hidden');
-        if(icon) icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>'; 
-        if(btn) btn.classList.replace('opacity-100', 'opacity-40'); if(hamburgerBtn) hamburgerBtn.style.opacity = '1'; 
-        if(line1) { line1.classList.remove('rotate-45', 'translate-y-[7.5px]'); if(line2) line2.classList.remove('opacity-0', 'translate-x-4'); if(line3) line3.classList.remove('-rotate-45', '-translate-y-[7.5px]'); }
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            // ขาเข้า: วิ่งเข้ามาแบบ เนิบๆ ร่อนๆ (0.7s) ไม่มีเด้งกระแทก (Ease-Out)
+            showForm.style.transition = 'all 0.7s cubic-bezier(0.22, 1, 0.36, 1)';
+            showForm.style.opacity = '1';
+            showForm.style.transform = 'translateX(0)';
+          });
+        });
       }
+    }, 400); 
+  } else {
+    if(showForm) {
+        showForm.classList.remove('hidden');
+        showForm.style.transition = 'none';
+        showForm.style.opacity = '0';
+        showForm.style.transform = tab === 'new' ? 'translateX(-60px)' : 'translateX(60px)'; 
+        
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            showForm.style.transition = 'all 0.7s cubic-bezier(0.22, 1, 0.36, 1)';
+            showForm.style.opacity = '1';
+            showForm.style.transform = 'translateX(0)';
+          });
+        });
     }
   }
+
+  if (typeof checkScrollIndicator === 'function') setTimeout(checkScrollIndicator, 600); 
+}
+
+// 3. ระบบ เปิด/ปิด แถบสไลด์บาร์ (รวมให้ใหม่ ป้องกันโค้ดแหว่ง)
+function toggleSidebar() {
+  var sb = document.getElementById('sidebar'); var overlay = document.getElementById('sidebarOverlay');
+  var icon = document.getElementById('sidebarIcon'); var btn = document.getElementById('sidebarToggleBtn');
+  var hamburgerBtn = document.getElementById('mainNavHamburger');
+  var line1 = document.getElementById('navLine1'); var line2 = document.getElementById('navLine2'); var line3 = document.getElementById('navLine3');
+
+  if (sb && overlay) {
+    if (sb.classList.contains('translate-x-full')) {
+      sb.classList.remove('translate-x-full'); overlay.classList.remove('hidden');
+      if(icon) icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>';
+      if(btn) btn.classList.replace('opacity-40', 'opacity-100'); if(hamburgerBtn) hamburgerBtn.style.opacity = '0';
+      if(line1) { line1.classList.add('rotate-45', 'translate-y-[7.5px]'); if(line2) line2.classList.add('opacity-0', 'translate-x-4'); if(line3) line3.classList.add('-rotate-45', '-translate-y-[7.5px]'); }
+    } else {
+      sb.classList.add('translate-x-full'); overlay.classList.add('hidden');
+      if(icon) icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>';
+      if(btn) btn.classList.replace('opacity-100', 'opacity-40'); if(hamburgerBtn) hamburgerBtn.style.opacity = '1';
+      if(line1) { line1.classList.remove('rotate-45', 'translate-y-[7.5px]'); if(line2) line2.classList.remove('opacity-0', 'translate-x-4'); if(line3) line3.classList.remove('-rotate-45', '-translate-y-[7.5px]'); }
+    }
+  }
+}
 
   // ==========================================
   // 🎨 โซนที่ 4: เอฟเฟกต์ช่องกรอก (Smart Inputs & Form Behaviors)
@@ -1611,30 +1728,108 @@ function showLoadingAlert(msg, mode = 'download') {
   }
 
   async function submitBorrowReturn(actionType) {
-    var formId = actionType === 'borrow' ? 'borrowForm' : 'returnForm'; if (!validateForm(formId)) return;
-    var imgFieldId = actionType === 'borrow' ? 'brImage' : 'rtImage'; var imgEl = document.getElementById(imgFieldId); var imgFile = imgEl ? imgEl.files[0] : null;
-    if(!imgFile) { Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: 'กรุณาแนบรูปถ่ายปัจจุบันเพื่อแนบเป็นหลักฐาน' }); return; }
-    Swal.fire({ title: actionType === 'borrow' ? 'ยืนยันการยืมเครื่องมือ?' : 'ยืนยันรับคืนเข้าคลัง?', icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#94a3b8', confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก', customClass: { popup: 'rounded-3xl' }, reverseButtons: true }).then(async function(result) {
-      if (result.isConfirmed) {
-        showLoadingAlert('กำลังอัปเดตสถานะคลัง...', 'upload'); var formData = { action: actionType };
-        try {
-          formData[actionType + 'Image'] = await readFileAsBase64(imgFile);
-          if(actionType === 'borrow') {
-            var brAssEl = document.getElementById('brAssetId'); var assetStr = brAssEl ? brAssEl.value : ""; formData.toolId = assetStr.split(' - ')[0]; formData.toolName = assetStr; formData.borrowerName = document.getElementById('brBorrower') ? document.getElementById('brBorrower').value : ''; formData.branch = document.getElementById('brBranch') ? document.getElementById('brBranch').value : ''; formData.brDate = document.getElementById('brDate') ? document.getElementById('brDate').value : ''; formData.expectedReturn = document.getElementById('brExpected') ? document.getElementById('brExpected').value : ''; formData.conditionBorrow = (document.getElementById('brCondition') && document.getElementById('brCondition').value === 'other') ? document.getElementById('newBrCondition').value : document.getElementById('brCondition').value; formData.brIssuerSelect = document.getElementById('brIssuerSelect') ? document.getElementById('brIssuerSelect').value : ''; formData.newBrIssuer = document.getElementById('newBrIssuer') ? document.getElementById('newBrIssuer').value : ''; formData.remarks = document.getElementById('brRemarks') ? document.getElementById('brRemarks').value : '';
-          } else {
-            var rtTransEl = document.getElementById('rtTransId'); var transStr = rtTransEl ? rtTransEl.value : ""; formData.transactionId = transStr.split(' - ')[0]; formData.rtReturnDate = document.getElementById('rtReturnDate') ? document.getElementById('rtReturnDate').value : ''; formData.conditionReturn = (document.getElementById('rtCondition') && document.getElementById('rtCondition').value === 'other') ? document.getElementById('newRtCondition').value : document.getElementById('rtCondition').value; formData.receiver = (document.getElementById('rtReceiver') && document.getElementById('rtReceiver').value === 'other') ? document.getElementById('newRtReceiver').value : document.getElementById('rtReceiver').value;
-          }
-          google.script.run.withSuccessHandler(function(res) {
-            if(res.success) { 
-              var condStr = actionType === 'borrow' ? formData.conditionBorrow : formData.conditionReturn;
-              if (condStr && (condStr.indexOf('ชำรุด') !== -1 || condStr.indexOf('สูญหาย') !== -1)) speakAI('แจ้งเตือน! ตรวจพบอุปกรณ์ชำรุดเสียหาย โปรดตรวจสอบด่วนค่ะ!', true); else speakAI('บันทึกข้อมูลเรียบร้อยแล้วค่ะ');
-              Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, customClass: { popup: 'rounded-3xl' } }).then(function() { var fEl = document.getElementById(formId); if(fEl) fEl.reset(); clearFile(imgFieldId); if(actionType === 'borrow') { var d1 = document.getElementById('newBrConditionDiv'); if(d1) d1.classList.add('hidden'); var d2 = document.getElementById('newBrIssuerDiv'); if(d2) d2.classList.add('hidden'); } else { var d3 = document.getElementById('newRtConditionDiv'); if(d3) d3.classList.add('hidden'); var d4 = document.getElementById('newRtReceiverDiv'); if(d4) d4.classList.add('hidden'); google.script.run.withSuccessHandler(populateOpenTransList).getOpenTransactions(); } initWaveInputs(); google.script.run.withSuccessHandler(populateDynamicDropdowns).getDynamicDropdowns(); }); 
-            } else { Swal.fire({ icon: 'error', title: 'ผิดพลาด!', text: res.message }); }
-          }).withFailureHandler(function(err) { Swal.fire({ icon: 'error', title: 'ล้มเหลว!', text: err.message }); }).saveBorrowReturnData(formData);
-        } catch(e) { Swal.fire({ icon: 'error', title: 'อ่านไฟล์ล้มเหลว' }); }
-      }
-    });
+  var formId = actionType === 'borrow' ? 'borrowForm' : 'returnForm'; 
+  if (!validateForm(formId)) return;
+  
+  var imgFieldId = actionType === 'borrow' ? 'brImage' : 'rtImage'; 
+  var imgEl = document.getElementById(imgFieldId); 
+  var imgFile = imgEl ? imgEl.files[0] : null;
+  
+  if(!imgFile) { 
+    Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: 'กรุณาแนบรูปถ่ายปัจจุบันเพื่อแนบเป็นหลักฐาน' }); 
+    return; 
   }
+  
+  Swal.fire({ 
+    title: actionType === 'borrow' ? 'ยืนยันการยืมเครื่องมือ?' : 'ยืนยันรับคืนเข้าคลัง?', 
+    icon: 'question', 
+    showCancelButton: true, 
+    confirmButtonColor: '#2563eb', 
+    cancelButtonColor: '#94a3b8', 
+    confirmButtonText: 'ยืนยัน', 
+    cancelButtonText: 'ยกเลิก', 
+    customClass: { popup: 'rounded-3xl' }, 
+    reverseButtons: true 
+  }).then(async function(result) {
+    if (result.isConfirmed) {
+      showLoadingAlert('กำลังอัปเดตสถานะคลัง...', 'upload'); 
+      var formData = { action: actionType };
+      
+      try {
+        formData[actionType + 'Image'] = await readFileAsBase64(imgFile);
+        
+        if(actionType === 'borrow') {
+          var brAssEl = document.getElementById('brAssetId'); 
+          var assetStr = brAssEl ? brAssEl.value : ""; 
+          formData.toolId = assetStr.split(' - ')[0]; 
+          formData.toolName = assetStr; 
+          formData.borrowerName = document.getElementById('brBorrower') ? document.getElementById('brBorrower').value : ''; 
+          formData.branch = document.getElementById('brBranch') ? document.getElementById('brBranch').value : ''; 
+          formData.brDate = document.getElementById('brDate') ? document.getElementById('brDate').value : ''; 
+          formData.expectedReturn = document.getElementById('brExpected') ? document.getElementById('brExpected').value : ''; 
+          
+          // 🎯 J.A.R.V.I.S. FIX 1: ดักจับค่า สภาพอุปกรณ์ (ตอนยืม)
+          formData.conditionBorrow = (document.getElementById('newBrConditionDiv') && !document.getElementById('newBrConditionDiv').classList.contains('hidden')) 
+            ? document.getElementById('newBrCondition').value.trim() 
+            : (document.getElementById('brCondition') ? document.getElementById('brCondition').value : '');
+            
+          formData.brIssuerSelect = document.getElementById('brIssuerSelect') ? document.getElementById('brIssuerSelect').value : ''; 
+          formData.newBrIssuer = document.getElementById('newBrIssuer') ? document.getElementById('newBrIssuer').value : ''; 
+          formData.remarks = document.getElementById('brRemarks') ? document.getElementById('brRemarks').value : '';
+          
+        } else {
+          var rtTransEl = document.getElementById('rtTransId'); 
+          var transStr = rtTransEl ? rtTransEl.value : ""; 
+          formData.transactionId = transStr.split(' - ')[0]; 
+          formData.rtReturnDate = document.getElementById('rtReturnDate') ? document.getElementById('rtReturnDate').value : ''; 
+          
+          // 🎯 J.A.R.V.I.S. FIX 2: ดักจับค่า สภาพอุปกรณ์ (ตอนคืน)
+          formData.conditionReturn = (document.getElementById('newRtConditionDiv') && !document.getElementById('newRtConditionDiv').classList.contains('hidden')) 
+            ? document.getElementById('newRtCondition').value.trim() 
+            : (document.getElementById('rtCondition') ? document.getElementById('rtCondition').value : '');
+            
+          // 🎯 J.A.R.V.I.S. FIX 3: แถมอัปเกรดให้! ดักจับค่า ผู้รับคืน (ตอนคืน)
+          formData.receiver = (document.getElementById('newRtReceiverDiv') && !document.getElementById('newRtReceiverDiv').classList.contains('hidden')) 
+            ? document.getElementById('newRtReceiver').value.trim() 
+            : (document.getElementById('rtReceiver') ? document.getElementById('rtReceiver').value : '');
+        }
+        
+        google.script.run.withSuccessHandler(function(res) {
+          if(res.success) { 
+            var condStr = actionType === 'borrow' ? formData.conditionBorrow : formData.conditionReturn;
+            if (condStr && (condStr.indexOf('ชำรุด') !== -1 || condStr.indexOf('สูญหาย') !== -1)) {
+              if(typeof speakAI === 'function') speakAI('แจ้งเตือน! ตรวจพบอุปกรณ์ชำรุดเสียหาย โปรดตรวจสอบด่วนค่ะ!', true); 
+            } else {
+              if(typeof speakAI === 'function') speakAI('บันทึกข้อมูลเรียบร้อยแล้วค่ะ');
+            }
+            
+            Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, customClass: { popup: 'rounded-3xl' } }).then(function() { 
+              var fEl = document.getElementById(formId); if(fEl) fEl.reset(); 
+              clearFile(imgFieldId); 
+              if(actionType === 'borrow') { 
+                var d1 = document.getElementById('newBrConditionDiv'); if(d1) d1.classList.add('hidden'); 
+                var d2 = document.getElementById('newBrIssuerDiv'); if(d2) d2.classList.add('hidden'); 
+              } else { 
+                var d3 = document.getElementById('newRtConditionDiv'); if(d3) d3.classList.add('hidden'); 
+                var d4 = document.getElementById('newRtReceiverDiv'); if(d4) d4.classList.add('hidden'); 
+                google.script.run.withSuccessHandler(populateOpenTransList).getOpenTransactions(); 
+              } 
+              if(typeof initWaveInputs === 'function') initWaveInputs(); 
+              if(typeof populateDynamicDropdowns === 'function') google.script.run.withSuccessHandler(populateDynamicDropdowns).getDynamicDropdowns(); 
+            }); 
+          } else { 
+            Swal.fire({ icon: 'error', title: 'ผิดพลาด!', text: res.message }); 
+          }
+        }).withFailureHandler(function(err) { 
+          Swal.fire({ icon: 'error', title: 'ล้มเหลว!', text: err.message }); 
+        }).saveBorrowReturnData(formData);
+        
+      } catch(e) { 
+        Swal.fire({ icon: 'error', title: 'อ่านไฟล์ล้มเหลว' }); 
+      }
+    }
+  });
+}
 
   async function submitTransferOut() {
   if (!validateForm('transferForm')) return;
@@ -1668,15 +1863,30 @@ function showLoadingAlert(msg, mode = 'download') {
       
       var tfAssEl = document.getElementById('tfAssetId'); var assetStr = tfAssEl ? tfAssEl.value : "";
       
+      // =======================================================
+      // 🎯 J.A.R.V.I.S. FIX: ดักจับค่าจากกล่องที่พิมพ์เพิ่มเอง
+      // =======================================================
       var formData = { 
         assetId: assetStr.split(' - ')[0], 
         assetName: assetStr,
         date: document.getElementById('tfDate') ? document.getElementById('tfDate').value : '',
-        destination: (document.getElementById('tfDestination') && document.getElementById('tfDestination').value === 'other') ? document.getElementById('new_tfDestination_input').value : document.getElementById('tfDestination').value,
-        issuer: (document.getElementById('tfIssuer') && document.getElementById('tfIssuer').value === 'other') ? document.getElementById('new_tfIssuer_input').value : document.getElementById('tfIssuer').value,
-        condition: (document.getElementById('tfCondition') && document.getElementById('tfCondition').value === 'other') ? document.getElementById('new_tfCondition_input').value : document.getElementById('tfCondition').value,
+        
+        // ถ้ากล่อง "พิมพ์ใหม่" ไม่ได้ถูกซ่อนไว้ (แสดงว่ากำลังใช้อยู่) ให้ดึงค่าจากกล่องพิมพ์ใหม่มาใช้
+        destination: (document.getElementById('new_tfDestination') && !document.getElementById('new_tfDestination').classList.contains('hidden')) 
+                     ? document.getElementById('new_tfDestination_input').value.trim() 
+                     : document.getElementById('tfDestination').value,
+                     
+        issuer: (document.getElementById('new_tfIssuer') && !document.getElementById('new_tfIssuer').classList.contains('hidden')) 
+                ? document.getElementById('new_tfIssuer_input').value.trim() 
+                : document.getElementById('tfIssuer').value,
+                
+        condition: (document.getElementById('new_tfCondition') && !document.getElementById('new_tfCondition').classList.contains('hidden')) 
+                   ? document.getElementById('new_tfCondition_input').value.trim() 
+                   : document.getElementById('tfCondition').value,
+                   
         remarks: document.getElementById('tfRemarks') ? document.getElementById('tfRemarks').value : ''
       };
+      // =======================================================
       
       try {
         formData.tfImage = await readFileAsBase64(imgFile);
