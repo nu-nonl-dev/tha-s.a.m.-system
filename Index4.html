@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Asset Management</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  
+  <?!= include('CSS_Style'); ?>
+
+  <style>
+    /* =========================================================
+       🪄 J.A.R.V.I.S. SMART MENU ANIMATIONS
+       ========================================================= */
+    .menu-item {
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important; /* ความสมูทระดับสปริง */
+      position: relative;
+      overflow: hidden;
+      border-right: 4px solid transparent; /* จองพื้นที่แถบขวาไว้ก่อน */
+    }
+
+    /* 1. เอฟเฟกต์ตอนเอาเมาส์ชี้ (Hover) -> สไลด์ขวา + ไฮไลท์สีฟ้า */
+    .menu-item:not(.active-menu):hover {
+      transform: translateX(8px);
+      background-color: #f8faff !important; 
+      color: #2563eb !important;
+    }
+
+    /* 2. เอฟเฟกต์ตอนคลิก (Active) -> ยุบตัวลงเด้งๆ */
+    .menu-item:active {
+      transform: scale(0.96) translateX(4px) !important;
+    }
+
+    /* 3. สถานะถูกเลือก (Active Menu) -> ล็อคแถบฟ้า + ตัวหนา */
+    .menu-item.active-menu {
+      background-color: #eff6ff !important; /* ฟ้าอ่อน */
+      color: #2563eb !important; /* ตัวหนังสือฟ้า */
+      font-weight: 700 !important;
+      border-right: 4px solid #2563eb !important; /* แถบขวา */
+    }
+
+    /* 4. แสงวิ่งผ่านตอนกดคลิก (Shine Effect) */
+    .menu-item::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 50%; height: 100%;
+      background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 100%);
+      transform: skewX(-20deg);
+      transition: all 0.5s ease;
+      pointer-events: none !important; /* 🎯 J.A.R.V.I.S. FIX: สั่งให้เมาส์ทะลุแสงไปกดปุ่มได้! */
+      z-index: 0;
+    }
+    
+  </style>
+</head>
+<body class="bg-brandGray text-gray-800 antialiased min-h-screen flex flex-col overflow-x-hidden">
+
+  <div class="bg-gradient-to-r from-brandDark to-brandBlue text-white shadow-lg sticky top-0 z-30 flex items-center justify-between px-4 py-3 sm:px-6">
+    <button id="voiceToggleBtn" onclick="toggleVoice()" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-3 py-1.5 backdrop-blur-md transition-all duration-300 focus:outline-none shadow-sm z-50">
+      <div class="relative flex items-center justify-center w-5 h-5">
+        <span id="voicePulse" class="absolute inset-0 bg-green-400 rounded-full opacity-0"></span>
+        <span id="voiceIcon" class="relative z-10 text-sm">🔇</span>
+      </div>
+      <span id="voiceText" class="text-xs font-bold tracking-widest text-blue-100 transition-colors">AI:OFF</span>
+    </button>
+    
+    <div class="text-center flex-grow pr-8">
+      <h1 class="text-xl font-bold tracking-widest">T | H | A</h1>
+      <p class="text-xs font-medium text-blue-100" id="headerSubtitle">Dashboard Center</p>
+    </div>
+    
+    <button id="mainNavHamburger" onclick="toggleSidebar()" class="group relative p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md focus:outline-none transition-all duration-300 shadow-sm flex flex-col justify-center items-center w-11 h-11 gap-[5px] overflow-hidden z-50">
+      <span id="navLine1" class="w-6 h-[2.5px] bg-white rounded-full transition-all duration-300 transform origin-center"></span>
+      <span id="navLine2" class="w-4 h-[2.5px] bg-white rounded-full transition-all duration-300 group-hover:w-6 transform origin-center ml-auto"></span>
+      <span id="navLine3" class="w-6 h-[2.5px] bg-white rounded-full transition-all duration-300 transform origin-center"></span>
+    </button>
+  </div>
+
+  <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden transition-opacity"></div>
+  
+  <div id="sidebar" class="fixed inset-y-0 right-0 w-72 bg-white shadow-2xl z-50 transform translate-x-full flex flex-col transition-transform duration-300 rounded-l-3xl">
+    
+    <button id="sidebarToggleBtn" onclick="toggleSidebar()" class="absolute -left-6 top-1/2 transform -translate-y-1/2 bg-brandBlue text-white w-6 h-24 rounded-l-xl shadow-md flex items-center justify-center animate-bounce-h transition-all duration-300 opacity-40 hover:opacity-100 border-y border-l border-blue-400 focus:outline-none z-50">
+      <svg id="sidebarIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+    </button>
+
+    <div class="p-6 bg-brandDark text-white relative rounded-tl-3xl">
+      <h2 class="text-2xl font-bold">System Menu</h2>
+      <p class="text-sm text-gray-300 mt-1">Select application module</p>
+      
+      <button onclick="toggleSidebar()" class="absolute top-4 right-4 p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors focus:outline-none z-50">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    
+    <div class="flex-1 overflow-y-auto py-2">
+      <a href="#" onclick="switchView('dashboard')" id="menu-dashboard" class="menu-item flex items-center px-6 py-4 bg-blue-50 text-brandBlue font-bold border-r-4 border-brandBlue">
+        <span class="mr-3 text-xl">📊</span> Dashboard Center
+      </a>
+      <a href="#" onclick="switchView('asset')" id="menu-asset" class="menu-item flex items-center px-6 py-4 text-gray-600 hover:bg-blue-50 hover:text-brandBlue font-semibold transition-colors">
+        <span class="mr-3 text-xl">📦</span> Asset Registration
+      </a>
+      <a href="#" onclick="switchView('maintenance')" id="menu-maintenance" class="menu-item flex items-center px-6 py-4 text-gray-600 hover:bg-blue-50 hover:text-brandBlue font-semibold transition-colors">
+        <span class="mr-3 text-xl">🛠️</span> Maintenance / PM.
+      </a>
+      <a href="#" onclick="switchView('borrow')" id="menu-borrow" class="menu-item flex items-center px-6 py-4 text-gray-600 hover:bg-blue-50 hover:text-brandBlue font-semibold transition-colors">
+        <span class="mr-3 text-xl">🔄</span> Borrow / Return
+      </a>
+      <a href="#" onclick="switchView('transfer')" id="menu-transfer" class="menu-item flex items-center px-6 py-4 text-gray-600 hover:bg-blue-50 hover:text-brandBlue font-semibold transition-colors">
+        <span class="mr-3 text-xl">🚚</span> Transfer Out
+      </a>
+      
+      <a href="#" onclick="switchView('gmrl')" id="menu-gmrl" class="menu-item flex items-center px-6 py-4 text-gray-600 hover:bg-blue-50 hover:text-brandBlue font-semibold transition-colors">
+        <span class="mr-3 text-xl">🏢</span> งานซ่อมบำรุงทั่วไป (GMRL.)
+      </a>
+
+      <a href="#" onclick="switchView('routine')" id="menu-routine" class="menu-item flex items-center px-6 py-4 text-gray-600 hover:bg-blue-50 hover:text-brandBlue font-semibold transition-colors">
+        <span class="mr-3 text-xl">🚶‍♂️</span> Routine Patrol
+      </a>
+
+      <a href="#" onclick="switchView('safety')" id="menu-safety" class="menu-item flex items-center px-6 py-4 text-gray-600 hover:bg-blue-50 hover:text-brandBlue font-semibold transition-colors">
+        <span class="mr-3 text-xl">🛡️</span> Safety Audit
+      </a>
+
+      <a href="#" onclick="switchView('reprint-tag'); initReprintTagPage();" id="menu-reprint-tag" class="menu-item flex items-center px-6 py-4 text-gray-600 hover:bg-blue-50 hover:text-brandBlue font-semibold transition-colors">
+        <span class="mr-3 text-xl">🖨️</span> พิมพ์ป้าย Tag (ซ่อม/ทดแทน)
+      </a>
+
+    </div>
+
+    <div class="p-4 border-t border-gray-100 bg-gray-50 text-center rounded-bl-3xl">
+      <p class="text-xs font-bold text-gray-500">Smart Asset System By Admin. T | H | A</p>
+      <p class="text-[10px] text-gray-400 mt-1">© 2026 Designed & Developed v.9.8</p>
+    </div>
+  </div>
+
+  <div class="flex-grow w-full max-w-2xl mx-auto p-4 sm:p-6 mb-8 mt-2">
+    <?!= include('View_Asset'); ?>
+    <?!= include('View_Maintenance'); ?>
+    <?!= include('View_Borrow'); ?>
+    <?!= include('View_Transfer'); ?> 
+    <?!= include('View_Dashboard'); ?> 
+    <?!= include('View_Gmrl'); ?>
+    <?!= include('View_Routine'); ?>
+    <?!= include('View_Safety'); ?>
+    <?!= include('View_ReprintTag'); ?> 
+  </div>
+
+  <div id="refreshDataContainer" class="fixed bottom-24 right-6 z-[99] transition-opacity duration-500 opacity-0 pointer-events-none">
+    
+    <button type="button" id="refreshBtn"
+      onclick="handleRefreshClick(this)" 
+      class="pointer-events-auto bg-[#06245C]/30 backdrop-blur-md text-white/50 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 border border-white/20 
+             hover:bg-[#06245C]/40 hover:text-white active:scale-90 relative w-14 h-14 overflow-hidden group">
+      
+      <div id="ringOuter" class="absolute inset-[3px] rounded-full border-t-4 border-transparent transition-all duration-300"></div>
+      
+      <div id="ringInner" class="absolute inset-[8px] rounded-full border-r-4 border-transparent transition-all duration-300" style="animation-direction: reverse;"></div>
+      
+      <svg id="coreIcon" class="w-6 h-6 relative z-10 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+      </svg>
+      
+    </button>
+</div>
+
+  <div id="scrollIndicator" class="fixed bottom-6 right-6 z-[99] transition-opacity duration-500 opacity-0 pointer-events-none">
+    
+    <div class="animate-bounce">
+      
+      <button type="button" 
+        onclick="window.scrollBy({top: 400, behavior: 'smooth'}); setTimeout(() => this.blur(), 100);" 
+        class="pointer-events-auto bg-[#06245C]/30 backdrop-blur-md text-white/50 p-3 rounded-full shadow-xl flex items-center justify-center transition-all border border-white/20 
+               hover:bg-[#06245C]/40 hover:text-white
+               active:!bg-[#2563eb] active:!scale-90 active:!text-white active:shadow-inner">
+        
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+        </svg>
+        
+      </button>
+    </div>
+</div>
+
+  <?!= include('JS_Script'); ?>
+
+<div id="qrSuccessModal" class="hidden fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-2 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-auto">
+     <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-2xl w-full max-w-sm text-center transform scale-95 transition-transform duration-300 relative overflow-y-auto max-h-[90vh]" id="qrModalContent">
+       
+        <div id="downloadSuccessOverlay" class="hidden absolute inset-0 bg-white/85 backdrop-blur-md z-50 flex flex-col items-center justify-center transition-all duration-300">
+            <div class="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center mb-4 animate-bounce shadow-lg border-4 border-white">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h3 class="text-xl font-black text-brandDark">โหลดไฟล์สำเร็จ!</h3>
+            <p class="text-sm text-gray-500 font-bold mt-1">เตรียมพร้อมใช้งาน...</p>
+        </div>
+
+        <div class="flex items-center justify-center gap-3 mb-1">
+            <div class="w-10 h-10 bg-green-100 text-green-500 rounded-full flex items-center justify-center shrink-0 green-blink-btn">
+               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h3 class="text-2xl font-black text-brandDark">บันทึกสำเร็จ!</h3>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">ระบบได้สร้างป้าย Tag ให้เรียบร้อยแล้ว</p>
+
+        <div class="flex justify-center mb-2">
+            <canvas id="assetTagCanvasDraw" width="500" height="850" class="w-[230px] h-auto shadow-lg rounded-[20px] border border-gray-100"></canvas>
+        </div>
+
+        <div class="mt-5 flex flex-col gap-2.5">
+           <button type="button" onclick="downloadAssetTagImage()" class="w-full bg-brandBlue text-white rounded-xl px-5 py-3 font-bold flex items-center justify-center gap-2 transition-all active:scale-95 neon-blink-btn">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              ดาวน์โหลดไฟล์รูป Tag QR
+           </button>
+           
+           <div class="flex gap-2.5">
+              <button type="button" onclick="resetSystemUI()" class="w-1/2 bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-600 rounded-xl px-3 py-2.5 font-bold shadow-sm hover:shadow-md transition-all active:scale-95">❌ ปิดหน้าต่างนี้</button>
+              
+              <button type="button" onclick="resetSystemUI()" class="w-1/2 text-white rounded-xl px-3 py-2.5 font-bold shadow-sm hover:shadow-md transition-all active:scale-95 bg-[#06245C] hover:bg-[#041840]">🏠 กลับหน้าหลัก</button>
+           </div>
+        </div>
+     </div>
+</div>
+
+<script>
+    // =========================================================
+    // 🧠 J.A.R.V.I.S. Menu Controller (สลับแถบสีฟ้า)
+    // =========================================================
+    document.addEventListener("DOMContentLoaded", function() {
+      const menuItems = document.querySelectorAll('.menu-item');
+      
+      // ตั้งค่าให้เมนูแรก (Dashboard) เป็น active เริ่มต้น (ถ้ายังไม่มีคลาส)
+      if(!document.querySelector('.active-menu')) {
+         document.getElementById('menu-dashboard').classList.add('active-menu');
+      }
+
+      menuItems.forEach(item => {
+        item.addEventListener('click', function() {
+          // 1. ล้างคลาส active ออกจากทุกเมนู
+          menuItems.forEach(m => m.classList.remove('active-menu'));
+          // 2. ใส่คลาส active ให้เมนูที่เพิ่งถูกคลิก
+          this.classList.add('active-menu');
+        });
+      });
+    });
+  </script>
+  
+</body>
+</html>
