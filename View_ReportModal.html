@@ -1,0 +1,194 @@
+<!-- ========================================================================= -->
+<!-- หน้าต่าง Report Modal (ผสมผสาน Glassmorphism + โครงสร้างเดิม) -->
+<!-- ========================================================================= -->
+<div id="reportModal" class="hidden fixed inset-0 z-[99999] bg-[#051430]/60 backdrop-blur-sm flex flex-col items-center justify-center p-2 sm:p-4 transition-opacity duration-300">
+  
+  <div class="bg-gray-50/95 w-full h-full sm:h-auto sm:max-h-[95vh] max-w-md rounded-2xl shadow-2xl flex flex-col relative overflow-hidden backdrop-blur-xl border border-white/60">
+    
+    <!-- 🎯 1. ส่วนหัว Modal: จัดกึ่งกลาง และใช้สี #06245C -->
+    <div class="bg-[#06245C] text-white p-5 flex justify-center items-center z-20 shadow-md">
+      <div class="text-center flex flex-col items-center justify-center">
+        <h2 class="text-xl font-black tracking-widest flex items-center gap-2">
+          <span class="text-2xl drop-shadow-md">📊</span> REPORT CENTER
+        </h2>
+        <p id="modalSubtitle" class="text-[10px] text-blue-200 uppercase tracking-widest font-bold mt-1">สร้างรายงานสรุปผล</p>
+      </div>
+    </div>
+
+    <!-- 🎯 2. ปุ่มปิดหน้าต่าง -->
+    <div class="flex justify-end px-4 pt-3 relative z-10">
+      <button type="button" onclick="closeReportModal()" class="bg-red-50 hover:bg-red-100 text-red-500 border border-red-200 rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center gap-1.5">
+        ✖ ปิดหน้าต่าง
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-3 sm:p-4 relative">
+      
+      <!-- 🎯 ฟอร์มตัวกรอง (เพิ่มตัวเลือก HK) -->
+      <div id="reportFilterForm" class="mb-4 bg-white/[70%] backdrop-blur-md p-4 rounded-2xl shadow-sm border border-white/[80%]">
+        
+        <div class="mb-3 relative">
+          <label class="block text-sm font-bold text-[#06245C] mb-1.5">ประเภทรายงาน</label>
+          <div class="relative">
+            <!-- 🎯 เพิ่ม Option Routine_HK และผูกฟังก์ชันสลับคำ -->
+            <select id="reportType" onchange="rtUpdateModalLabels(this.value)" class="w-full bg-white border border-gray-200 text-[#06245C] rounded-xl p-3 font-bold focus:ring-2 focus:ring-[#06245C] outline-none appearance-none shadow-inner transition-all">
+              <option value="Routine">🚶‍♂️ เดินตรวจรอบ (Routine)</option>
+              <option value="Routine_HK">🧹 งานประจำวัน [ HK. ] (Housekeeping)</option>
+              <option value="Safety">🛡️ ความปลอดภัย (Safety Audit)</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#06245C]">
+              <svg class="w-4 h-4 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3 relative">
+          <label class="block text-sm font-bold text-[#06245C] mb-1.5">ตั้งแต่วันที่</label>
+          <div class="relative flex items-center">
+            <span class="absolute left-4 z-10 text-blue-500 text-lg">📅</span>
+            <input type="text" onfocus="(this.type='date')" onblur="if(!this.value) this.type='text'" id="startDate" placeholder=">> กรุณากดเพื่อเลือกวันที่ <<" class="w-full pl-12 pr-3 py-3 bg-white border border-gray-200 text-[#06245C] placeholder-gray-400 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-[#06245C] shadow-inner transition-all">
+          </div>
+        </div>
+        
+        <div class="mb-4 relative">
+          <label class="block text-sm font-bold text-[#06245C] mb-1.5">ถึงวันที่</label>
+          <div class="relative flex items-center">
+            <span class="absolute left-4 z-10 text-blue-500 text-lg">📅</span>
+            <input type="text" onfocus="(this.type='date')" onblur="if(!this.value) this.type='text'" id="endDate" placeholder=">> กรุณากดเพื่อเลือกวันที่ <<" class="w-full pl-12 pr-3 py-3 bg-white border border-gray-200 text-[#06245C] placeholder-gray-400 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-[#06245C] shadow-inner transition-all">
+          </div>
+        </div>
+
+        <button type="button" onclick="generateReport()" class="w-full bg-[#06245C] hover:bg-[#0a2353] text-white font-bold py-3.5 rounded-xl shadow-[0_4px_12px_rgba(6,36,92,0.3)] transition-all active:scale-95 flex items-center justify-center gap-2 border border-[#06245C]">
+          🔍 ดึงข้อมูล
+        </button>
+      </div>
+
+      <div id="exportArea" class="p-2 sm:p-4 rounded-2xl transition-colors duration-300 relative bg-transparent">
+        
+        <div id="exportHeader" class="hidden relative z-10 w-full bg-[#051430] text-white py-6 text-center rounded-t-2xl mb-5 shadow-md border-b-4 border-blue-500">
+          <h1 class="text-4xl font-black tracking-[0.25em] mb-1">T | H | A</h1>
+          <p class="text-sm font-bold tracking-widest text-gray-300">By TH District</p>
+        </div>
+
+        <div class="relative z-10">
+          
+          <!-- กล่องสรุปตัวเลข (สลับ Label ตามโหมด) -->
+          <div class="grid grid-cols-3 gap-3 mb-5">
+            <div class="w-full text-center p-3 bg-white/[60%] backdrop-blur-md border border-white/[50%] rounded-2xl shadow-sm">
+              <p id="lblTotal" class="text-[11px] font-bold text-[#051430]">ตรวจทั้งหมด</p>
+              <p id="sumTotal" class="text-2xl font-black text-gray-800">0</p>
+            </div>
+            <div class="w-full text-center p-3 bg-white/[60%] backdrop-blur-md border border-white/[50%] rounded-2xl shadow-sm">
+              <p id="lblPass" class="text-[11px] font-bold text-green-700">🟢 ปกติ</p>
+              <p id="sumPass" class="text-2xl font-black text-green-600">0</p>
+            </div>
+            <div class="w-full text-center p-3 bg-white/[60%] backdrop-blur-md border border-white/[50%] rounded-2xl shadow-sm">
+              <p id="lblFail" class="text-[11px] font-bold text-red-700">🔴 ผิดปกติ</p>
+              <p id="sumFail" class="text-2xl font-black text-red-600">0</p>
+            </div>
+          </div>
+
+          <!-- พื้นที่กราฟเกือกม้า -->
+          <div class="mb-5 bg-[#F5F8FB]/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-white shadow-md relative overflow-hidden text-gray-800">
+
+            <div id="chartLoadingOverlay" class="hidden absolute inset-0 z-50 bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl transition-opacity duration-300">
+              <div class="w-10 h-10 border-4 border-blue-200 border-t-[#06245C] rounded-full animate-spin mb-2"></div>
+              <p class="text-xs font-black text-[#06245C] tracking-widest animate-pulse">กำลังดึงข้อมูลกราฟ...</p>
+            </div>
+
+            <div class="flex flex-col relative z-10">
+              <div class="sam-glass relative w-full h-[330px] flex justify-center items-center rounded-2xl py-4 mt-2 mb-4">
+                 <div id="chartContainer" class="w-full h-full"></div>
+                 
+                 <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 pt-4">
+                    <h3 id="reportChartTotal" class="text-[60px] sm:text-[72px] font-black text-[#06245C] drop-shadow-sm tracking-tighter leading-none heartbeat-text">0</h3>
+                    
+                    <div class="mt-2.5 flex items-center gap-1.5 bg-white/40 px-3 py-1 rounded-full border border-[#06245C]/10 shadow-inner backdrop-blur-sm">
+                      <span id="lblChartTotal" class="text-[11px] sm:text-[12px] text-[#06245C] uppercase tracking-[0.2em] font-extrabold font-['NotoSansThaiBold']">
+                        ตรวจพบทั้งหมด
+                      </span>
+                    </div>
+                 </div>
+                 
+                 <div class="sam-watermark absolute bottom-2 left-0 w-full text-center pointer-events-none z-10">
+                   <span style="color: rgba(6,36,92,0.3); font-size: 8px; font-weight: 800; letter-spacing: 0.25em; text-transform: uppercase;">By THA Smart Asset System</span>
+                 </div>
+              </div>
+
+              <div id="top5Card" class="w-full mt-4 bg-white/50 rounded-2xl p-4 backdrop-blur-md border border-white shadow-sm">
+                <p class="text-[13px] text-[#06245C] font-black mb-4 uppercase tracking-widest border-b border-gray-300/50 pb-2 flex items-center gap-2">
+                   <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_#60a5fa]"></span> 
+                   <span id="lblRatioTitle">สรุปสัดส่วนสถานะการตรวจ</span>
+                </p>
+                <div id="reportStatusList" class="space-y-3"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ตารางรายการที่พบปัญหา (ปรับคำอธิบายตาราง) -->
+          <div class="mb-5 bg-white/[60%] backdrop-blur-md p-4 rounded-2xl border border-white/[50%] shadow-sm flex flex-col gap-2 relative z-10">
+            <h3 id="issueTableTitle" class="text-sm font-bold text-red-600 border-b border-red-200 pb-2 flex items-center gap-2">
+              <span class="text-lg">🚨</span> รายการที่พบปัญหา
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-gray-800">
+                <thead class="bg-black/5 rounded-t-lg">
+                  <tr>
+                    <th class="p-2 font-bold">พื้นที่ / โซน</th>
+                    <th class="p-2 font-bold">รายละเอียด</th>
+                    <th class="p-2 font-bold">สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody id="issueTableBody">
+                  <tr><td colspan="3" class="text-center p-4 text-gray-500 font-bold">ยังไม่มีข้อมูล</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ปุ่ม Export -->
+      <div class="flex justify-center gap-4 mt-2 mb-6">
+         <button onclick="downloadReport('PDF')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-6 rounded-xl shadow-md flex justify-center items-center gap-2 transition-all active:scale-95">
+            📄 โหลด PDF
+         </button>
+         <button onclick="downloadReport('JPG')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl shadow-md flex justify-center items-center gap-2 transition-all active:scale-95">
+            🖼️ โหลด JPG
+         </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 🎯 ฟังก์ชันสลับคำอธิบายใน Modal ตามโหมดงาน
+ */
+function rtUpdateModalLabels(type) {
+    const isHK = (type === 'Routine_HK');
+    
+    // อัปเดตส่วนหัวและกล่องสรุป
+    document.getElementById('lblTotal').innerText = isHK ? "งานทั้งหมด" : "ตรวจทั้งหมด";
+    document.getElementById('lblPass').innerText = isHK ? "🟢 เสร็จสมบูรณ์" : "🟢 ปกติ";
+    document.getElementById('lblFail').innerText = isHK ? "🔴 พบอุปสรรค" : "🔴 ผิดปกติ";
+    
+    // อัปเดตในกราฟ
+    document.getElementById('lblChartTotal').innerText = isHK ? "รายการงานทั้งหมด" : "ตรวจพบทั้งหมด";
+    document.getElementById('lblRatioTitle').innerText = isHK ? "สรุปสัดส่วนผลการปฏิบัติงาน" : "สรุปสัดส่วนสถานะการตรวจ";
+    
+    // อัปเดตหัวตาราง
+    const issueTitle = document.getElementById('issueTableTitle');
+    if (isHK) {
+        issueTitle.innerHTML = '<span class="text-lg">✨</span> รายการผลการปฏิบัติงาน (KPI)';
+        issueTitle.classList.replace('text-red-600', 'text-green-600');
+        issueTitle.classList.replace('border-red-200', 'border-green-200');
+    } else {
+        issueTitle.innerHTML = '<span class="text-lg">🚨</span> รายการที่พบปัญหา';
+        issueTitle.classList.replace('text-green-600', 'text-red-600');
+        issueTitle.classList.replace('border-green-200', 'border-red-200');
+    }
+}
+</script>
