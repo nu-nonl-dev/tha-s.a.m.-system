@@ -1,0 +1,625 @@
+<script>
+// =======================================================================
+// 🚀 ชุดฟังก์ชันจัดการ Routine (Cleaned Version - ป้องกัน Syntax Error)
+// =======================================================================
+// --- 💥 ระบบควบคุมเอฟเฟกต์ปุ่ม ➕ (Triple Blink + Pulse) ---
+// --- เอฟเฟกต์ปุ่ม ➕ ---
+window.rtCheckInputForAnimation = function(val) {
+    var btn = document.getElementById('rtAddCardBtn');
+    var icon = document.getElementById('rtAddIcon');
+    var ping = document.getElementById('rtAddPing');
+    
+    if(val && val.trim() !== '') {
+        if(btn) btn.classList.add('shadow-[0_0_15px_rgba(37,99,235,0.6)]', 'scale-[1.05]');
+        if(icon) icon.classList.add('animate-pulse', 'scale-110');
+        if(ping) { ping.classList.remove('opacity-0'); ping.classList.add('animate-ping', 'opacity-75'); }
+    } else {
+        if(btn) btn.classList.remove('shadow-[0_0_15px_rgba(37,99,235,0.6)]', 'scale-[1.05]');
+        if(icon) icon.classList.remove('animate-pulse', 'scale-110');
+        if(ping) { ping.classList.remove('animate-ping', 'opacity-75'); ping.classList.add('opacity-0'); }
+    }
+};
+
+// --- ดึงคำศัพท์ทำ Auto-Suggest ---
+window.rtLoadTopicSuggestions = function() {
+    if(typeof google !== 'undefined' && google.script) {
+        google.script.run
+            .withSuccessHandler(function(topics) {
+                var datalist = document.getElementById('topicSuggestions');
+                if(datalist && topics && topics.length > 0) {
+                    datalist.innerHTML = ""; 
+                    topics.forEach(function(topic) {
+                        var option = document.createElement('option');
+                        option.value = topic;
+                        datalist.appendChild(option);
+                    });
+                }
+            })
+            .getRoutineTopics(); 
+    }
+};
+
+window.setupRoutineDropdowns = function() {
+    if(typeof initSmartDropdown === 'function') {
+        initSmartDropdown({ id: 'rtInspector', data: ['คุณ นุ (แอดมิน)', 'ช่างโจ', 'สแตนบาย(รอใส่ชื่อช่างใหม่)', 'ทีมช่าง THA'], allowOther: true });
+        initSmartDropdown({ id: 'rtFloor', data: ['G Flr.', 'M Flr.', 'M Flr.[ Office ]', 'M Flr. [ หลังคาฝั่ง Office ]', 'M Flr. [ หลังคาฝั่ง พื้นที่เช่า ]', 'M Flr.[ Grab & Go ]', '2nd Flr.', '2nd Flr.[ Green Space ]', '3rd Flr.', '4th Flr.', '5th Flr.', '6th Flr.', 'Rooftop'], allowOther: true });
+        initSmartDropdown({ id: 'rtZone', data: ['โซน A [ หัวอาคาร/ริมถนนใหญ่ ]', 'โซน B [ กลางอาคาร/บันไดกลาง ]', 'โซน C [ ท้ายอาคาร/บันไดหลัง ]', 'โซน D [ หน้าอาคาร/ริมถนนซอย ]', 'โซน E [ ข้างอาคารติด ธ.กสิกร ]', 'โซน F [ ออฟฟิศ ]', 'โซน G [ ลานจอดรถ ]'], allowOther: true });
+    } else { setTimeout(window.setupRoutineDropdowns, 500); }
+};
+
+window.rtAutoResizeDropdowns = function() {
+    ['rtInspectorDisplay', 'rtFloorDisplay', 'rtZoneDisplay'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if(el) {
+            el.style.whiteSpace = 'pre-wrap'; el.style.overflowY = 'hidden';
+            setInterval(function() {
+                if(el.value) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } 
+                else { el.style.height = '54px'; }
+            }, 300);
+        }
+    });
+};
+
+window.rtCardCount = 0;       
+window.currentRtSession = ""; 
+
+window.rtInitSession = function() {
+    if(!window.currentRtSession) {
+        var dateStr = new Date().toISOString().slice(2,10).replace(/-/g, '');
+        var randomNum = Math.floor(1000 + Math.random() * 9000);
+        window.currentRtSession = "RT-" + dateStr + "-" + randomNum;
+    }
+};
+
+// --- โหลดการ์ดงานเก่าขึ้นมาแสดง ---
+window.rtLoadExistingCards = function(sessionId) {
+    var container = document.getElementById('rtCardsContainer');
+    if(!container) return; 
+
+    container.innerHTML = '<div id="rtLoadingCards" class="text-center py-6 text-gray-500 font-bold animate-pulse text-sm bg-white/50 rounded-2xl border border-gray-200 shadow-sm">⏳ กำลังสแกนหาข้อมูลงานเก่าของรหัส ' + sessionId + ' ...</div>';
+    
+    google.script.run
+        .withSuccessHandler(function(items) {
+            var loadingEl = document.getElementById('rtLoadingCards');
+            if(loadingEl) loadingEl.remove();
+
+            if (items && items.length > 0) {
+                console.log("✅ ดึงข้อมูลการ์ดเก่าสำเร็จ จำนวน: " + items.length + " รายการ");
+                
+                items.forEach(function(item) {
+                    var badgeClass = "bg-green-50/90 text-green-700 border-green-300";
+                    var cardBgColor = "rgba(240, 253, 244, 0.85)"; 
+                    var cardBorderClass = "border-green-400";
+                    var topicTextColor = "text-green-700";
+                    
+                    if (item.status.includes("🟠") || item.status.includes("รอดำเนินการ")) { 
+                        badgeClass = "bg-orange-50/90 text-orange-700 border-orange-300"; 
+                        cardBgColor = "rgba(255, 247, 237, 0.85)";
+                        cardBorderClass = "border-orange-400";
+                        topicTextColor = "text-orange-700";
+                    } else if (item.status.includes("🔴") || item.status.includes("อุปสรรค")) { 
+                        badgeClass = "bg-red-50/90 text-red-700 border-red-300"; 
+                        cardBgColor = "rgba(254, 242, 242, 0.85)";
+                        cardBorderClass = "border-red-400";
+                        topicTextColor = "text-red-700";
+                    }
+
+                    var cardHTML = [
+                        '<div class="rounded-2xl p-4 shadow-sm mb-2 transition-all border ', cardBorderClass, '" style="background-color: ', cardBgColor, ';">',
+                            '<div class="flex flex-col gap-2">',
+                                '<div class="flex justify-between items-start gap-2 w-full">',
+                                    '<div class="flex flex-col gap-1.5 flex-1 min-w-0 pr-2">',
+                                        '<div class="flex items-center"><span class="text-[9.5px] font-bold text-gray-500 flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-md border border-gray-200/50 shadow-sm"><svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ', item.timestamp, '</span></div>',
+                                        '<div class="flex items-start"><span class="text-[10.5px] font-bold bg-blue-50/90 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-200/50 shadow-sm leading-relaxed">🏢 ', item.floor, '</span></div>',
+                                    '</div>',
+                                    '<div class="flex gap-2 flex-shrink-0 text-gray-400" title="รายการนี้ถูกบันทึกแล้ว">🔒</div>',
+                                '</div>',
+                                '<div class="flex justify-between items-start gap-2 w-full">',
+                                    '<div class="flex-1 min-w-0"><span class="inline-block text-[10.5px] font-bold bg-purple-50/90 text-purple-700 px-2 py-0.5 rounded-lg border border-purple-200/50 shadow-sm leading-relaxed break-words">📌 ', item.zone, '</span></div>',
+                                    '<span class="text-[10.5px] font-bold px-2.5 py-0.5 rounded-lg shadow-sm whitespace-nowrap flex-shrink-0 mt-[1px] border ', badgeClass, '">', item.status, '</span>',
+                                '</div>',
+                                '<h4 class="text-[14.5px] font-bold leading-tight flex items-start gap-1.5 mt-0.5 break-words w-full ', topicTextColor, '">',
+                                    '<span class="text-green-500 text-base leading-none mt-[1px] flex-shrink-0">✅</span>',
+                                    '<span>', item.topic, '</span>',
+                                '</h4>',
+                            '</div>',
+                        '</div>'
+                    ].join('');
+                    
+                    container.insertAdjacentHTML('beforeend', cardHTML);
+                });
+            } else {
+                console.warn("⚠️ ไม่พบข้อมูลรายการเดิมในชีต");
+                container.innerHTML = '<div class="text-center py-6 text-orange-500 font-bold text-sm bg-white/50 rounded-2xl border border-orange-200 shadow-sm">ไม่พบรายการเก่าของรหัสนี้<br>(สามารถเริ่มบันทึกรายการใหม่ได้เลยครับ)</div>';
+            }
+        })
+        .withFailureHandler(function(err) {
+            var loadingEl = document.getElementById('rtLoadingCards');
+            if(loadingEl) loadingEl.remove();
+            console.error("❌ เกิดข้อผิดพลาดในการโหลดงานเก่า: ", err);
+            container.innerHTML = '<div class="text-center py-6 text-red-500 font-bold text-sm bg-white/50 rounded-2xl border border-red-200 shadow-sm">เกิดข้อผิดพลาด: <br>' + err.message + '</div>';
+        })
+        .getExistingRoutineItems(sessionId);
+};
+
+// --- 🎯 2. ฟังก์ชันตรวจสอบ Session ค้าง (อัปเดตระบบแยกโหมด RT/HK) ---
+window.rtCheckPendingSession = function() {
+    // 🎯 ดึงโหมดปัจจุบันที่หน้าจอกำลังเปิดอยู่ (Patrol หรือ HK)
+    var currentMode = document.getElementById('rtCurrentMode') ? document.getElementById('rtCurrentMode').value : 'Patrol';
+    console.log("🔍 กำลังเช็คงานค้างสำหรับโหมด: " + currentMode);
+
+    if(typeof google !== 'undefined' && google.script) {
+        google.script.run.withSuccessHandler(function(res) {
+            if (res && res.hasPending) {
+                Swal.fire({
+                    title: 'พบรอบงานที่ยังไม่ปิดจบ!',
+                    text: 'รหัส: ' + res.sessionId,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'ดึงกลับมาทำต่อ',
+                    cancelButtonText: 'บังคับปิดจบ',
+                    confirmButtonColor: '#06245C',
+                    cancelButtonColor: '#d33',
+                    allowOutsideClick: false,
+                    customClass: { popup: 'rounded-3xl' }
+                }).then((result) => {
+                    // ถ้ายืนยัน "ดึงกลับมาทำต่อ"
+                    if (result.isConfirmed) {
+                        window.currentRtSession = res.sessionId;
+                        
+                        // เรียกฟังก์ชันโหลดการ์ดเก่ามาโชว์ทันที
+                        window.rtLoadExistingCards(res.sessionId);
+                        Swal.fire({ title:'ดึงข้อมูลสำเร็จ', icon:'success', timer: 1000, showConfirmButton: false });
+                    } 
+                    // ถ้ายืนยัน "บังคับปิดจบ" (ล้างคิว)
+                    else if (result.dismiss === Swal.DismissReason.cancel) {
+                        google.script.run.forceClosePendingSessions();
+                        window.currentRtSession = "";
+                        if(typeof window.rtInitSession === 'function') window.rtInitSession();
+                        Swal.fire({ title:'ล้างข้อมูลเรียบร้อย', icon:'success', timer: 1000, showConfirmButton: false });
+                    }
+                });
+            } else {
+                console.log("✅ ระบบสะอาด ไม่มีงานค้างในโหมด " + currentMode);
+            }
+        })
+        .withFailureHandler(function(err){
+            console.error("❌ ไม่สามารถเช็คงานค้างได้: ", err);
+        })
+        // 🎯 ส่งชื่อโหมดปัจจุบันไปให้หลังบ้านตรวจสอบ
+        .checkPendingRoutineSession(currentMode);
+    }
+};
+
+// --- 🎯 Radar Scan: ระบบตรวจจับหน้าจอแบบ 100% วิ่งเช็คตลอดเวลา ---
+window.hasCheckedPending = false; 
+
+document.addEventListener("DOMContentLoaded", function() {
+    try {
+        window.setupRoutineDropdowns();
+        window.rtAutoResizeDropdowns(); 
+        window.rtLoadTopicSuggestions(); 
+        
+        // ใช้ setInterval 스แกนทุกๆ 0.8 วินาที (แม่นยำกว่า MutationObserver)
+        setInterval(function() {
+            var view = document.getElementById('view-routine');
+            // เช็คว่า Element มีอยู่, ไม่ได้ถูกซ่อนด้วยคลาส hidden, และโชว์บนจอจริงๆ (offsetParent !== null)
+            if (view && !view.classList.contains('hidden') && view.offsetParent !== null) {
+                if (!window.hasCheckedPending) {
+                    console.log("📡 [Radar] ตรวจพบการเปิดเข้าหน้า Routine แล้ว! สั่งทำงาน...");
+                    window.rtCheckPendingSession();
+                    window.hasCheckedPending = true; // ล็อกไว้จะได้ไม่สแกนซ้ำ
+                }
+            } else {
+                // ถ้าย้ายไปหน้าอื่น ให้ปลดล็อก เผื่อกลับเข้ามาใหม่จะได้เช็คอีกรอบ
+                window.hasCheckedPending = false; 
+            }
+        }, 800);
+
+        const routineLabels = document.querySelectorAll('#view-routine .wave-label');
+        routineLabels.forEach(label => {
+            if(!label.querySelector('span')) { 
+                label.innerHTML = label.innerText.split('').map((letter, idx) => 
+                    '<span style="transition-delay:' + (idx * 20) + 'ms">' + letter + '</span>'
+                ).join('');
+            }
+        });
+    } catch (error) {
+        console.error("🚨 เกิดข้อผิดพลาดตอนโหลดหน้า Routine: ", error);
+    }
+});
+
+window.rtCardCount = 0;       
+window.currentRtSession = ""; 
+
+window.rtInitSession = function() {
+    if(!window.currentRtSession) {
+        var dateStr = new Date().toISOString().slice(2,10).replace(/-/g, '');
+        var randomNum = Math.floor(1000 + Math.random() * 9000);
+        window.currentRtSession = "RT-" + dateStr + "-" + randomNum;
+    }
+};
+
+window.rtCreateCard = function() {
+    try {
+        window.rtInitSession(); 
+        var topicInput = document.getElementById('rtTopicInput');
+        var topicText = topicInput ? topicInput.value.trim() : '';
+        
+        // 🎯 ข้อ 3: แก้ไขการดึงค่า Dropdown ให้รองรับการพิมพ์ "+อื่นๆ" ได้เป๊ะๆ
+        var getRealDropdownValue = function(baseId) {
+            var displayVal = document.getElementById(baseId + 'Display') ? document.getElementById(baseId + 'Display').value.trim() : '';
+            var newContainer = document.getElementById('new_' + baseId);
+            var newInput = document.getElementById('new_' + baseId + '_input');
+            if (newContainer && !newContainer.classList.contains('hidden') && newInput && newInput.value.trim() !== '') {
+                return newInput.value.trim();
+            }
+            if (displayVal.includes('+ อื่นๆ') || displayVal.includes('Other')) return '';
+            return displayVal;
+        };
+
+        var floorRaw = getRealDropdownValue('rtFloor');
+        var zoneRaw = getRealDropdownValue('rtZone');
+        var inspectorRaw = getRealDropdownValue('rtInspector');
+
+        if (!topicText || !floorRaw || !zoneRaw || !inspectorRaw) {
+            if(typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ข้อมูลไม่ครบถ้วน!',
+                    html: '<div class="text-sm mt-2 text-gray-600">กรุณาระบุ <b>ผู้ตรวจ, ชั้น, โซน</b><br>และ <b>หัวข้อตรวจ</b> ให้ครบถ้วนก่อนครับ</div>',
+                    confirmButtonText: 'รับทราบ',
+                    confirmButtonColor: '#06245C',
+                    customClass: {
+                        popup: 'bg-white/70 backdrop-blur-xl border border-white/60 shadow-2xl rounded-3xl', 
+                        backdrop: 'backdrop-blur-sm bg-slate-900/20' 
+                    }
+                });
+            } else {
+                alert('กรุณาระบุข้อมูลให้ครบถ้วน (ผู้ตรวจ, ชั้น, โซน, หัวข้อตรวจ)');
+            }
+            return;
+        }
+
+        var floorText = floorRaw;
+        var zoneText = zoneRaw;
+        var inspectorText = inspectorRaw;
+
+        window.rtCardCount++;
+        var cardId = window.rtCardCount;
+        var container = document.getElementById('rtCardsContainer');
+
+        var cardHTML = [
+            '<div id="rtCard_', cardId, '" class="bg-white/[80%] backdrop-blur-md border border-white/[60%] rounded-2xl p-4 shadow-sm transition-all duration-300 relative overflow-hidden mb-1" data-topic="', topicText, '" data-floor="', floorText, '" data-zone="', zoneText, '" data-inspector="', inspectorText, '">',
+                
+                // 🌟 โครงสร้างจัดวางใหม่! แบ่งเป็น 3 แถวเรียงกันลงมา (ไม่มีการใช้ Absolute ให้รวนแล้ว)
+                '<div class="flex flex-col gap-2 mb-3">',
+                    
+                    // --- แถวที่ 1: ชั้น (ซ้าย) & กลุ่มปุ่มมุมขวา (ขวา) ---
+                    '<div class="flex justify-between items-start gap-2 w-full">',
+                        '<div class="flex flex-col gap-1.5 flex-1 min-w-0 pr-2">',
+                            '<div id="rtTimeWrap_', cardId, '" class="hidden flex items-center">',
+                                '<span id="rtTimestamp_', cardId, '" class="text-[9.5px] font-bold text-gray-500 flex items-center gap-1 bg-white/50 px-2 py-0.5 rounded-md border border-gray-200/50 shadow-sm"></span>',
+                            '</div>',
+                            '<div class="flex items-start">',
+                                '<span class="text-[10.5px] font-bold bg-blue-50/90 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-200/50 shadow-sm leading-relaxed">🏢 ', floorText, '</span>',
+                            '</div>',
+                        '</div>',
+                        // กลุ่มปุ่ม V และ ปุ่มลบ ชิดขวาเป๊ะ 100%
+                        '<div class="flex gap-2 flex-shrink-0">',
+                            '<button type="button" onclick="rtDeleteCard(', cardId, ')" id="rtDelBtn_', cardId, '" class="w-8 h-8 bg-red-50/80 text-red-500 rounded-xl flex items-center justify-center transition-all active:scale-90 border border-red-200/50 shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>',
+                            '<button type="button" id="rtExpandBtn_', cardId, '" onclick="rtToggleCard(', cardId, ')" class="hidden w-8 h-8 bg-gray-50/80 text-gray-400 rounded-xl flex items-center justify-center transition-all border border-gray-200/50 shadow-sm"><svg id="rtArrow_', cardId, '" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg></button>',
+                        '</div>',
+                    '</div>',
+
+                    // --- แถวที่ 2: โซน (ซ้าย) & ป้าย Badge (ขวา) ---
+                    '<div class="flex justify-between items-start gap-2 w-full">',
+                        '<div class="flex-1 min-w-0">',
+                            '<span class="inline-block text-[10.5px] font-bold bg-purple-50/90 text-purple-700 px-2 py-0.5 rounded-lg border border-purple-200/50 shadow-sm leading-relaxed break-words">📌 ', zoneText, '</span>',
+                        '</div>',
+                        '<span id="rtStatusBadge_', cardId, '" class="hidden text-[10.5px] font-bold px-2.5 py-0.5 rounded-lg border shadow-sm whitespace-nowrap flex-shrink-0 mt-[1px]"></span>',
+                    '</div>',
+
+                    // --- แถวที่ 3: หัวข้อตรวจ (เต็มบรรทัด) ---
+                    '<h4 class="text-[14.5px] font-bold text-gray-800 leading-tight flex items-start gap-1.5 mt-0.5 break-words w-full">',
+                        '<span id="rtCheckIcon_', cardId, '" class="hidden text-green-500 text-base leading-none mt-[1px] transition-all flex-shrink-0">✅</span>',
+                        '<span id="rtTopicText_', cardId, '" class="transition-colors">', topicText, '</span>',
+                    '</h4>',
+                '</div>',
+                
+                '<div id="rtCardBody_', cardId, '" class="transition-all duration-500">',
+                    '<div class="flex gap-2 mb-4">',
+                        '<label class="flex-1 cursor-pointer"><input type="radio" name="rtStatus_', cardId, '" value="🟢 ปกติ" class="peer sr-only" onchange="rtCheckReadyToSave(', cardId, ')"><div class="text-center py-2.5 rounded-xl border-2 border-gray-200/50 bg-white/50 text-gray-400 font-bold text-[11px] peer-checked:bg-green-50 peer-checked:border-green-400 peer-checked:text-green-600 transition-all">🟢 ปกติ/เสร็จ</div></label>',
+                        '<label class="flex-1 cursor-pointer"><input type="radio" name="rtStatus_', cardId, '" value="🟠 แจ้งซ่อม/แก้ไข" class="peer sr-only" onchange="rtCheckReadyToSave(', cardId, ')"><div class="text-center py-2.5 rounded-xl border-2 border-gray-200/50 bg-white/50 text-gray-400 font-bold text-[11px] peer-checked:bg-orange-50 peer-checked:border-orange-400 peer-checked:text-orange-600 transition-all">🟠 รอดำเนินการ</div></label>',
+                        '<label class="flex-1 cursor-pointer"><input type="radio" name="rtStatus_', cardId, '" value="🔴 ผิดปกติ" class="peer sr-only" onchange="rtCheckReadyToSave(', cardId, ')"><div class="text-center py-2.5 rounded-xl border-2 border-gray-200/50 bg-white/50 text-gray-400 font-bold text-[11px] peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-600 transition-all">🔴 พบอุปสรรค</div></label>',
+                    '</div>',
+                    '<div class="relative w-full mb-4 group">',
+                        '<div class="flex items-stretch gap-2 h-[48px]">',
+                            '<label for="rtImage_', cardId, '" class="flex-grow flex items-center justify-center gap-2 bg-blue-50/80 text-blue-700 border-2 border-dashed border-blue-300/50 rounded-xl font-bold text-sm cursor-pointer hover:bg-blue-100 transition-all active:scale-95"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg><span id="rtImgName_', cardId, '">📸 ถ่ายรูปแนบจุดตรวจ</span></label>',
+                            '<button type="button" id="rtClearImg_', cardId, '" onclick="rtClearImage(', cardId, ')" class="hidden w-[48px] flex-shrink-0 bg-red-50/80 text-red-500 border-2 border-red-200/50 rounded-xl flex items-center justify-center active:scale-90"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>',
+                        '</div>',
+                        '<input type="file" id="rtImage_', cardId, '" accept="image/*" capture="environment" class="hidden" onchange="rtProcessImage(', cardId, ')">',
+                    '</div>',
+                    '<div id="rtGmrlBox_', cardId, '" class="hidden mb-4 p-3 bg-red-50/50 rounded-xl border border-red-200/50 transition-all animate-fade-in">',
+                        '<div class="flex items-center justify-between mb-2">',
+                            '<span class="text-xs font-bold text-red-700 flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>เปิดใบแจ้งซ่อม GMRL</span>',
+                            '<label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="rtGmrlCb_', cardId, '" class="sr-only peer" checked><div class="w-9 h-5 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>',
+                        '</div>',
+                        '<textarea id="rtRemarks_', cardId, '" rows="2" class="w-full text-xs p-2 border border-red-200/50 bg-white/80 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-300" placeholder="ระบุรายละเอียดอาการเสีย..."></textarea>',
+                    '</div>',
+                    '<button type="button" id="rtSaveBtn_', cardId, '" onclick="rtSaveSingleCard(', cardId, ')" disabled class="w-full bg-gray-200/80 text-gray-500 rounded-xl py-3.5 font-bold flex justify-center items-center gap-2 transition-all shadow-sm cursor-not-allowed">บันทึกข้อมูลข้อนี้</button>',
+                '</div>',
+                '<div id="rtSuccessOverlay_', cardId, '" class="absolute inset-0 bg-green-50/90 backdrop-blur-sm flex flex-col items-center justify-center text-green-600 font-bold hidden z-50 transition-colors">',
+                    '<div class="bg-white p-3 rounded-full shadow-sm mb-2"><svg class="w-10 h-10 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path></svg></div>',
+                    '<span>บันทึกสำเร็จ</span>',
+                '</div>',
+            '</div>'
+        ].join('');
+
+        container.insertAdjacentHTML('afterbegin', cardHTML); 
+        
+        topicInput.value = ''; topicInput.classList.remove('has-value');
+
+        var topicWrap = document.getElementById('rtTopicWrap');
+        if(topicWrap) topicWrap.classList.remove('animate-pulse', 'border-blue-500', 'shadow-[0_0_15px_rgba(37,99,235,0.4)]');
+        window.rtCheckInputForAnimation('');
+
+        var fDisplay = document.getElementById('rtFloorDisplay');
+        if(fDisplay) { fDisplay.value = ''; fDisplay.style.height = '54px'; }
+        
+        var zDisplay = document.getElementById('rtZoneDisplay');
+        if(zDisplay) { zDisplay.value = ''; zDisplay.style.height = '54px'; }
+
+        window.rtLoadTopicSuggestions(); 
+    } catch(err) { alert("เกิดข้อผิดพลาดในการสร้างการ์ด: " + err.message); }
+};
+
+window.rtProcessImage = function(id) {
+    var input = document.getElementById('rtImage_'+id);
+    var label = document.getElementById('rtImgName_'+id);
+    var clearBtn = document.getElementById('rtClearImg_'+id);
+    if(input.files.length > 0) {
+        label.innerText = "✅ เลือกรูปเรียบร้อย";
+        clearBtn.classList.remove('hidden');
+        rtCheckReadyToSave(id);
+    }
+};
+
+window.rtClearImage = function(id) {
+    document.getElementById('rtImage_'+id).value = "";
+    document.getElementById('rtImgName_'+id).innerText = "📸 ถ่ายรูปแนบจุดตรวจ";
+    document.getElementById('rtClearImg_'+id).classList.add('hidden');
+    rtCheckReadyToSave(id);
+};
+
+window.rtCheckReadyToSave = function(id) {
+    setTimeout(function() {
+        var status = document.querySelector(`input[name="rtStatus_${id}"]:checked`);
+        var img = document.getElementById(`rtImage_${id}`);
+        var btn = document.getElementById(`rtSaveBtn_${id}`);
+        var gmrlBox = document.getElementById(`rtGmrlBox_${id}`);
+        if(status && (status.value !== "🟢 ปกติ")) { if(gmrlBox) gmrlBox.classList.remove('hidden'); } 
+        else { if(gmrlBox) gmrlBox.classList.add('hidden'); }
+
+        if(status && img && img.files.length > 0) {
+            btn.disabled = false;
+            btn.className = "w-full bg-blue-600 text-white rounded-xl py-3.5 font-bold shadow-md active:scale-95 transition-all cursor-pointer";
+        } else {
+            btn.disabled = true;
+            btn.className = "w-full bg-gray-200/80 text-gray-500 rounded-xl py-3.5 font-bold cursor-not-allowed";
+        }
+    }, 50);
+};
+
+window.rtToggleCard = function(id) {
+    var body = document.getElementById(`rtCardBody_${id}`);
+    var arrow = document.getElementById(`rtArrow_${id}`);
+    if(body.classList.contains('hidden')) { body.classList.remove('hidden'); arrow.style.transform = "rotate(180deg)"; } 
+    else { body.classList.add('hidden'); arrow.style.transform = "rotate(0deg)"; }
+};
+
+window.rtDeleteCard = function(id) {
+    if(typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'ยืนยันลบรายการ?', text: "ข้อมูลหัวข้อนี้จะถูกนำออกจากรายการตรวจ", icon: 'warning',
+            showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'ลบออก', cancelButtonText: 'ยกเลิก', reverseButtons: true,
+            customClass: {
+                popup: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-2xl rounded-3xl', 
+                backdrop: 'backdrop-blur-sm bg-slate-900/20' 
+            }
+        }).then((result) => { if (result.isConfirmed) document.getElementById(`rtCard_${id}`).remove(); });
+    } else { if(confirm("ยืนยันลบรายการ?")) document.getElementById(`rtCard_${id}`).remove(); }
+};
+
+window.rtSaveSingleCard = function(id) {
+    var card = document.getElementById('rtCard_' + id);
+    var btn = document.getElementById('rtSaveBtn_' + id);
+    var statusObj = document.querySelector(`input[name="rtStatus_${id}"]:checked`);
+    var statusVal = statusObj ? statusObj.value : "🟢 ปกติ";
+    var imgFile = document.getElementById('rtImage_' + id).files[0];
+    
+    var gmrlBox = document.getElementById('rtGmrlBox_' + id) || document.getElementById('rtGmrlContainer_' + id);
+    var isGmrl = false; var remarks = "";
+    if(gmrlBox && !gmrlBox.classList.contains('hidden')) {
+        var cb = document.getElementById('rtGmrlCb_' + id) || document.getElementById('rtCreateGmrl_' + id);
+        if(cb) isGmrl = cb.checked;
+        var remarksObj = document.getElementById('rtRemarks_' + id);
+        if(remarksObj) remarks = remarksObj.value;
+    }
+
+    // 🎯 ข้อ 6: ปรับคำ Badge ให้แสดงผลตามโหมด (Patrol หรือ HK) ให้ถูกต้อง
+    var currentMode = document.getElementById('rtCurrentMode') ? document.getElementById('rtCurrentMode').value : 'Patrol';
+    var badgeClass = "bg-green-50/90 text-green-700 border-green-300";
+    var badgeText = (currentMode === 'HK') ? "🟢 ปกติ/เสร็จ" : "🟢 ปกติ";
+    var cardBgColor = "rgba(240, 253, 244, 0.85)"; 
+    var cardBorderClass = "border-green-400";
+    var topicTextColor = "text-green-700";
+    var overlayColorClass = "bg-green-50/90 text-green-600";
+    var expandBtnColorClass = "bg-green-50/80 text-green-600 border-green-300 hover:bg-green-100"; 
+
+    if (statusVal.includes("🟠")) { 
+        badgeClass = "bg-orange-50/90 text-orange-700 border-orange-300"; 
+        badgeText = (currentMode === 'HK') ? "🟠 รอดำเนินการ" : "🟠 แจ้งซ่อม"; 
+        cardBgColor = "rgba(255, 247, 237, 0.85)";
+        cardBorderClass = "border-orange-400";
+        topicTextColor = "text-orange-700";
+        overlayColorClass = "bg-orange-50/90 text-orange-600";
+        expandBtnColorClass = "bg-orange-50/80 text-orange-600 border-orange-300 hover:bg-orange-100";
+    } else if (statusVal.includes("🔴")) { 
+        badgeClass = "bg-red-50/90 text-red-700 border-red-300"; 
+        badgeText = (currentMode === 'HK') ? "🔴 พบอุปสรรค" : "🔴 ผิดปกติ"; 
+        cardBgColor = "rgba(254, 242, 242, 0.85)";
+        cardBorderClass = "border-red-400";
+        topicTextColor = "text-red-700";
+        overlayColorClass = "bg-red-50/90 text-red-600";
+        expandBtnColorClass = "bg-red-50/80 text-red-600 border-red-300 hover:bg-red-100";
+    }
+
+    btn.innerHTML = `<div class="flex items-center justify-center gap-2.5">
+        <div class="relative w-6 h-6 flex items-center justify-center">
+            <svg class="absolute inset-0 w-full h-full text-[#04d4d4] animate-spin" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M 12 2 A 10 10 0 0 1 12 22 A 7.5 10 0 0 0 12 2 Z" />
+            </svg>
+            <svg class="absolute inset-0 w-full h-full text-blue-300 animate-spin" style="animation-direction: reverse;" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M 12 5 A 7 7 0 0 0 12 19 A 4.5 7 0 0 1 12 5 Z" />
+            </svg>
+        </div>
+        <span>กำลังอัปโหลด...</span>
+    </div>`;
+    btn.disabled = true;
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            var MAX_WIDTH = 1024; 
+            var scaleSize = MAX_WIDTH / img.width;
+            if(scaleSize > 1) scaleSize = 1; 
+            canvas.width = img.width * scaleSize;
+            canvas.height = img.height * scaleSize;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            var base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]; 
+
+            var payload = {
+                action: 'saveRoutineItem', sessionId: window.currentRtSession,
+                inspector: card.dataset.inspector, floor: card.dataset.floor, zone: card.dataset.zone,
+                topic: card.dataset.topic, status: statusVal,
+                fileName: imgFile.name, mimeType: "image/jpeg", fileData: base64Data,
+                createGmrl: isGmrl, remarks: remarks
+            };
+
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    btn.style.display = "none";
+                    var overlay = document.getElementById('rtSuccessOverlay_' + id);
+                    if(overlay) { 
+                        overlay.className = `absolute inset-0 flex flex-col items-center justify-center font-bold z-50 transition-colors ${overlayColorClass}`;
+                        overlay.classList.remove('hidden'); 
+                    }
+                    card.classList.remove('border-white/[60%]', 'bg-white/[80%]');
+                    card.classList.add(cardBorderClass);
+                    card.style.backgroundColor = cardBgColor; 
+
+                    var badgeEl = document.getElementById('rtStatusBadge_' + id);
+                    if(badgeEl) {
+                        // 🌟 คืนคลาสให้ตอนบันทึกสำเร็จด้วย จะได้เรียงสวยงามเหมือนเดิม
+                        badgeEl.className = "text-[10.5px] font-bold px-2.5 py-0.5 rounded-lg border shadow-sm whitespace-nowrap flex-shrink-0 mt-[1px] transition-all " + badgeClass;
+                        badgeEl.innerText = badgeText;
+                        badgeEl.classList.remove('hidden');
+                    }
+
+                    var expandBtn = document.getElementById('rtExpandBtn_' + id);
+                    if(expandBtn) {
+                        expandBtn.className = "hidden w-8 h-8 rounded-xl flex items-center justify-center transition-all border shadow-sm " + expandBtnColorClass;
+                    }
+
+                    var checkIcon = document.getElementById('rtCheckIcon_' + id);
+                    if(checkIcon) {
+                        checkIcon.innerText = "✅"; 
+                        checkIcon.classList.remove('hidden');
+                    }
+                    
+                    var topicTextEl = document.getElementById('rtTopicText_' + id);
+                    if(topicTextEl) topicTextEl.classList.replace('text-gray-800', topicTextColor);
+
+                    var now = new Date();
+                    var dd = String(now.getDate()).padStart(2, '0');
+                    var mm = String(now.getMonth() + 1).padStart(2, '0');
+                    var yyyy = now.getFullYear();
+                    var hrs = String(now.getHours()).padStart(2, '0');
+                    var mins = String(now.getMinutes()).padStart(2, '0');
+                    var secs = String(now.getSeconds()).padStart(2, '0');
+                    
+                    var timeStr = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ' + dd + "/" + mm + "/" + yyyy + " - " + hrs + ":" + mins + ":" + secs;
+                    var timeEl = document.getElementById('rtTimestamp_' + id);
+                    var timeWrap = document.getElementById('rtTimeWrap_' + id);
+                    if(timeEl) { timeEl.innerHTML = timeStr; }
+                    if(timeWrap) { timeWrap.classList.remove('hidden'); }
+
+                    setTimeout(function() {
+                        var cardBody = document.getElementById('rtCardBody_' + id);
+                        if(cardBody) cardBody.classList.add('hidden');
+                        if(overlay) overlay.classList.add('hidden');
+                        
+                        if(expandBtn) expandBtn.classList.remove('hidden');
+                        var delBtn = document.getElementById('rtDelBtn_' + id);
+                        if(delBtn) delBtn.classList.add('hidden'); 
+                        var arrow = document.getElementById('rtArrow_' + id);
+                        if(arrow) arrow.style.transform = "rotate(0deg)";
+                    }, 1500);
+                })
+                .withFailureHandler(function(err) {
+                    btn.innerHTML = "❌ ลองใหม่อีกครั้ง"; btn.disabled = false; btn.style.backgroundColor = "#ef4444";
+                    alert("เกิดข้อผิดพลาด: " + err.message);
+                })
+                .processRoutineUpload(payload);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(imgFile);
+};
+
+// 🎯 ข้อ 8: ระบบแจ้งเตือนจบ Session ที่สอดคล้องกับโหมด และเด้ง Report Modal
+window.rtFinishPatrolSession = function() {
+    var currentMode = document.getElementById('rtCurrentMode') ? document.getElementById('rtCurrentMode').value : 'Patrol';
+    var modeName = currentMode === 'HK' ? 'การปฏิบัติงาน' : 'การตรวจพื้นที่';
+
+    if(!window.currentRtSession) return Swal.fire('แจ้งเตือน', 'ยังไม่ได้เริ่มรอบ' + modeName + 'ครับ', 'info');
+    
+    Swal.fire({
+        title: 'ปิดจบรอบ' + modeName + '?', text: "รหัสรอบ: " + window.currentRtSession, icon: 'question',
+        showCancelButton: true, confirmButtonColor: '#06245C', cancelButtonColor: '#d33', confirmButtonText: 'ยืนยันปิดรอบ', cancelButtonText: 'ยังไม่เสร็จ', reverseButtons: true,
+        customClass: {
+            popup: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-2xl rounded-3xl', 
+            backdrop: 'backdrop-blur-sm bg-slate-900/20' 
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            let finishedSessionId = window.currentRtSession; 
+
+            google.script.run.withSuccessHandler(function() {
+                Swal.fire({
+                    title: 'ปิดรอบสำเร็จ!', 
+                    text: 'บันทึกสถานะลงระบบเรียบร้อย กำลังสร้างรายงานสรุป...', 
+                    icon: 'success',
+                    timer: 1500, 
+                    showConfirmButton: false
+                }).then(() => {
+                    // เคลียร์ค่าและหน้าจอ เพื่อรอรับงานใหม่
+                    window.currentRtSession = ""; 
+                    document.getElementById('rtCardsContainer').innerHTML = ""; 
+                    
+                    // 🎯 เด้ง Report Modal สรุปผล
+                    if (typeof openReportModal === 'function') {
+                        openReportModal('Instant', finishedSessionId);
+                    } else {
+                        switchView('dashboard'); 
+                    }
+                });
+            }).finishRoutineSessionInSheet(window.currentRtSession);
+        }
+    });
+};
+</script>
