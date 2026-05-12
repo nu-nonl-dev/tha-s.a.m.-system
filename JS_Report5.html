@@ -1,0 +1,971 @@
+<script>
+/**
+ * =======================================================
+ * REPORT SYSTEM FRONTEND (Phase 6 - Multi-Department UI)
+ * ผสานระบบ UI ใหม่ รองรับรายงาน รปภ. และ แม่บ้าน (HK)
+ * =======================================================
+ */
+
+let currentReportData = null;
+let reportChartInstance = null; 
+
+// 🟢 ฟังก์ชันหน้าต่างโหลดดิ้ง
+function showLoadingAlert(msg, mode = 'download') { 
+  const arrowPath = (mode === 'upload') 
+    ? "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 13l3-3m0 0l3 3m-3-3v9" 
+    : "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"; 
+
+  Swal.fire({ 
+    html: `
+      <div class="flex flex-col items-center justify-center py-6">
+        <div class="relative w-20 h-20 flex items-center justify-center mb-6">
+          <div class="absolute inset-0 rounded-full border-t-4 border-[#04d4d4] animate-spin"></div>
+          <div class="absolute inset-2 rounded-full border-r-4 border-blue-400 animate-spin" style="animation-direction: reverse;"></div>
+          <svg class="w-10 h-10 text-[#04d4d4] relative z-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="${arrowPath}"></path>
+          </svg>
+        </div>
+        <h3 class="text-xl font-black text-[#06245C] tracking-wide mb-2">${msg}</h3>
+        <p class="text-[10px] text-blue-500 font-bold tracking-widest animate-pulse uppercase">S.A.M. Processing...</p>
+      </div>
+    `, 
+    allowOutsideClick: false, 
+    showConfirmButton: false, 
+    customClass: { 
+      container: 'z-[999999]', 
+      popup: 'rounded-[2rem] shadow-2xl border border-gray-100 bg-white/95 backdrop-blur-xl' 
+    } 
+  }); 
+}
+
+// 🎯 ตัวแปรกลางสำหรับเก็บวันที่โหมดด่วน (Global Variables)
+let instantStartDate = "";
+let instantEndDate = "";
+
+function openReportModal(mode, sessionId = null) {
+  const modal = document.getElementById('reportModal');
+  const filterForm = document.getElementById('reportFilterForm');
+  
+  resetReportUI();
+  modal.classList.remove('hidden');
+  
+  if (mode === 'Instant' && sessionId) {
+    filterForm.classList.add('hidden');
+    
+    // ตั้งค่าเบื้องต้น เช็คจาก Prefix ว่าเป็น HK หรือ RT
+    let currentMode = 'Routine';
+    if(sessionId.startsWith('HK-')) {
+        currentMode = 'Routine_HK';
+    }
+    document.getElementById('reportType').value = currentMode;
+    
+    // 🎯 [พระเอกของเรา!] สั่งให้อัปเดตข้อความบนหน้า UI เป็น Hygiene Score ทันที
+    if (typeof rtUpdateModalLabels === 'function') {
+        rtUpdateModalLabels(currentMode);
+    }
+    
+    // 🎯 [แก้บั๊กเด็ดขาด] สร้างวันที่ปัจจุบันและยัดลงไปในระบบทันที!
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`; // ฟอร์แมตที่ Input Type Date ต้องการ
+    
+    instantStartDate = todayStr;
+    instantEndDate = todayStr;
+    
+    const startInput = document.getElementById('startDate');
+    const endInput = document.getElementById('endDate');
+    if(startInput) { startInput.type = 'date'; startInput.value = todayStr; }
+    if(endInput) { endInput.type = 'date'; endInput.value = todayStr; }
+
+    if(typeof speakAI === 'function') speakAI("กำลังสรุปผลการทำงานรอบนี้ กรุณารอสักครู่ค่ะ");
+
+    showLoadingAlert('กำลังสรุปผลรอบล่าสุด...', 'download');
+    toggleChartOverlay(true); 
+    fetchReportData({ reportType: document.getElementById('reportType').value, sessionId: sessionId });
+    
+  } else {
+    filterForm.classList.remove('hidden');
+    if(typeof speakAI === 'function') speakAI("โหมด Report Center พร้อมใช้งานค่ะ");
+    
+    // 🎯 สั่งอัปเดต UI ให้ตรงกับค่าที่เลือกอยู่ใน Dropdown ปัจจุบัน
+    if (typeof rtUpdateModalLabels === 'function') {
+        rtUpdateModalLabels(document.getElementById('reportType').value);
+    }
+    
+    const startDateEl = document.getElementById('startDate');
+    const endDateEl = document.getElementById('endDate');
+    if(startDateEl) { startDateEl.value = ''; startDateEl.type = 'text'; }
+    if(endDateEl) { endDateEl.value = ''; endDateEl.type = 'text'; }
+    
+    // 🎯 ล้างค่าตัวแปรกลางเมื่อเปิดโหมดปกติ เพื่อไม่ให้ข้อมูลกวนกัน
+    instantStartDate = "";
+    instantEndDate = "";
+    
+    toggleChartOverlay(false);
+  }
+}
+
+function closeReportModal() {
+  document.getElementById('reportModal').classList.add('hidden');
+  currentReportData = null; 
+}
+
+function toggleChartOverlay(show) {
+  const overlay = document.getElementById('chartLoadingOverlay');
+  if(overlay) {
+    if(show) overlay.classList.remove('hidden');
+    else overlay.classList.add('hidden');
+  }
+}
+
+function resetReportUI() {
+  const totalEl = document.getElementById('sumTotal');
+  const passEl = document.getElementById('sumPass');
+  const failEl = document.getElementById('sumFail');
+  
+  if(totalEl) totalEl.innerText = '0';
+  if(passEl) passEl.innerText = '0';
+  if(failEl) failEl.innerText = '0';
+  
+  const tbody = document.getElementById('issueTableBody');
+  if(tbody) tbody.innerHTML = '<tr><td colspan="3" class="text-center p-6 text-gray-400 font-bold">ยังไม่มีข้อมูล</td></tr>';
+  
+  renderApexChart(0, 0, 0); 
+}
+
+function generateReport() {
+  const type = document.getElementById('reportType').value;
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+
+  if (!start || !end) {
+    Swal.fire({
+      icon: 'warning', title: 'แจ้งเตือน', text: 'กรุณาเลือกช่วงวันที่ให้ครบถ้วนก่อนครับ',
+      customClass: { popup: 'rounded-3xl' }
+    });
+    return;
+  }
+
+  showLoadingAlert('กำลังค้นหาข้อมูล...', 'download');
+  toggleChartOverlay(true); 
+  fetchReportData({ reportType: type, startDate: start, endDate: end });
+}
+
+function fetchReportData(params) {
+  google.script.run
+    .withSuccessHandler(function(response) {
+      Swal.close();
+      toggleChartOverlay(false); 
+      if (response && response.status === 'success') {
+        currentReportData = response;
+        renderReportDashboard(response); 
+      } else {
+        Swal.fire('ข้อผิดพลาด', 'Backend ขัดข้อง: ' + (response.message || 'ดึงข้อมูลไม่ได้'), 'error');
+        resetReportUI();
+      }
+    })
+    .withFailureHandler(function(error) {
+      Swal.close();
+      toggleChartOverlay(false); 
+      Swal.fire('ข้อผิดพลาดการเชื่อมต่อ', 'ไม่สามารถคุยกับ Server ได้: ' + error.message, 'error');
+      resetReportUI();
+    })
+    .getReportData(params); 
+}
+
+function renderReportDashboard(data) {
+  const summary = data.summary;
+  const isHK = document.getElementById('reportType').value === 'Routine_HK';
+
+  if (!data.records || data.records.length === 0) {
+     Swal.fire({
+        icon: 'info', title: 'ไม่พบข้อมูล', text: 'ไม่มีประวัติข้อมูลในช่วงเวลาหรือเงื่อนไขที่คุณเลือกครับ',
+        confirmButtonColor: '#06245C'
+     });
+     resetReportUI();
+     return;
+  }
+
+  // 🎯 นำข้อมูลวันที่ที่หลังบ้านคำนวณมา ยัดใส่ตัวแปร Global ที่คุณมีอยู่แล้ว
+  if (data.autoStartDate) instantStartDate = data.autoStartDate;
+  if (data.autoEndDate) instantEndDate = data.autoEndDate;
+
+  // 🎯 พยายามยัดลงหน้าจอด้วย (เพื่อให้แสดงผลในช่องปฏิทินถ้าหน้าต่างเปิดอยู่)
+  const startDateInput = document.getElementById('startDate');
+  const endDateInput = document.getElementById('endDate');
+  
+  if (data.autoStartDate && startDateInput) {
+      startDateInput.type = 'date';
+      startDateInput.value = data.autoStartDate;
+  }
+  if (data.autoEndDate && endDateInput) {
+      endDateInput.type = 'date';
+      endDateInput.value = data.autoEndDate;
+  }
+
+  let passCount = (summary && summary.statusCount) ? (summary.statusCount.Normal || 0) : 0;
+  let warnCount = (summary && summary.statusCount) ? (summary.statusCount.Warning || 0) : 0;
+  let failCount = (summary && summary.statusCount) ? (summary.statusCount.Critical || 0) : 0;
+  let totalIssue = warnCount + failCount;
+  
+  // 🎯 ดึงยอดรวมมาเตรียมไว้
+  const totalCount = summary.totalInspected || summary.totalAudited || 0;
+
+  // 🚀 [ จุดเชื่อมต่อ AI ] เรียกใช้ฟังก์ชัน AI Dashboard โดยส่งค่าทั้งหมดไปให้คำนวณ
+  renderAIDashboard(data, isHK, passCount, warnCount, failCount, totalCount);
+
+  // ส่วนนี้เป็นของเดิมของคุณ (ซ่อนไว้แล้วแต่ยังอัปเดตเผื่อไว้)
+  const totalEl = document.getElementById('sumTotal');
+  const passEl = document.getElementById('sumPass');
+  const failEl = document.getElementById('sumFail');
+  if(totalEl) totalEl.innerText = totalCount;
+  if(passEl) passEl.innerText = passCount;
+  if(failEl) failEl.innerText = totalIssue;
+
+  const tbody = document.getElementById('issueTableBody');
+  if (tbody) {
+    if (summary.issueList && summary.issueList.length > 0) {
+      tbody.innerHTML = '';
+      summary.issueList.forEach(issue => {
+        let statusTxt = issue.status.replace(/🔴|🟠|🟢/g, '').trim();
+        let isCritical = issue.status.includes('🔴') || statusTxt.includes('ผิดปกติ') || statusTxt.includes('อุปสรรค');
+        let statusColor = isCritical ? 'text-red-600 bg-red-50' : (issue.status.includes('🟠') || statusTxt.includes('ซ่อม') || statusTxt.includes('รอ') ? 'text-orange-500 bg-orange-50' : 'text-green-600 bg-green-50');
+        
+        let row = `<tr class="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
+                     <td class="p-2.5 font-bold text-gray-700">${issue.location || issue.category || '-'}</td>
+                     <td class="p-2.5 text-[11px] text-gray-600 leading-tight">${issue.details || '-'} ${issue.gmrl && issue.gmrl !== '-' ? '<br><span class="text-blue-500">Ref: '+issue.gmrl+'</span>' : ''}</td>
+                     <td class="p-2.5"><span class="${statusColor} px-2 py-1 rounded-lg text-[10px] font-black border border-current whitespace-nowrap">${statusTxt}</span></td>
+                   </tr>`;
+        tbody.innerHTML += row;
+      });
+    } else {
+      let emptyMsg = isHK ? "✨ ไม่มีประวัติการปฏิบัติงานในรอบนี้" : "🎉 ไม่พบปัญหาในรอบนี้";
+      tbody.innerHTML = `<tr><td colspan="3" class="text-center p-6 text-green-600 font-black tracking-widest bg-green-50/50">${emptyMsg}</td></tr>`;
+    }
+  }
+  renderApexChart(passCount, warnCount, failCount);
+}
+
+// 🎯 ล้างค่าตัวแปรเมื่อปิดหน้าต่าง (ป้องกันวันที่ค้าง)
+function closeReportModal() {
+  document.getElementById('reportModal').classList.add('hidden');
+  currentReportData = null; 
+  instantStartDate = ""; // 🎯 ล้างค่า
+  instantEndDate = "";   // 🎯 ล้างค่า
+}
+
+function renderApexChart(pass, warn, fail) {
+  const container = document.getElementById('chartContainer');
+  const listContainer = document.getElementById('reportStatusList');
+  const totalEl = document.getElementById('reportChartTotal');
+  
+  if(container) container.innerHTML = ''; 
+  if(listContainer) listContainer.innerHTML = '';
+
+  const total = pass + warn + fail;
+  if(totalEl) totalEl.innerText = total; 
+
+  if (total === 0) {
+    if(container) container.innerHTML = '<div class="text-white opacity-40 text-xs flex items-center justify-center h-full">ไม่มีข้อมูลสถานะให้แสดงกราฟ</div>';
+    if(listContainer) listContainer.innerHTML = '<p class="text-[#06245C] opacity-60 text-center text-xs">ยังไม่มีข้อมูลในระบบ</p>';
+    return;
+  }
+
+  // 🎯 เปลี่ยน Label ของกราฟแบบ Dynamic ตามโหมดที่เลือก
+  const isHK = document.getElementById('reportType').value === 'Routine_HK';
+  const labels = isHK 
+        ? ['เสร็จสมบูรณ์ (Done)', 'รอดำเนินการ (Pending)', 'พบอุปสรรค (Issue)'] 
+        : ['ปกติ (Normal)', 'แจ้งซ่อม (Warning)', 'ผิดปกติ (Critical)'];
+
+  const values = [pass, warn, fail];
+  const colors = ['#22c55e', '#f97316', '#ef4444']; 
+  const icons = ['✅', '🔧', '🚨'];
+
+  const seriesValues = values.map(v => total > 0 ? Math.round((v / total) * 100) : 0);
+
+  const options = {
+    series: seriesValues,
+    chart: { type: 'radialBar', height: 350, fontFamily: 'Noto Sans Thai' },
+    plotOptions: {
+      radialBar: {
+        startAngle: -175,
+        endAngle: 175,
+        hollow: { size: '60%', background: 'transparent' },
+        track: { background: 'rgba(6,36,92,0.1)', strokeWidth: '100%' },
+        dataLabels: {
+          name: { show: false },
+          value: { 
+            show: true, fontSize: '18px', fontWeight: '900', color: '#06245C', offsetY: -5, 
+            formatter: function (val, opt) { return values[opt.seriesIndex]; }
+          }
+        }
+      }
+    },
+    grid: { padding: { top: 0, bottom: 20, left: 10, right: 10 } },
+    colors: colors, stroke: { lineCap: 'round' }, labels: labels, legend: { show: false }
+  };
+
+  if (typeof reportChartInstance !== 'undefined' && reportChartInstance) { reportChartInstance.destroy(); }
+  if(container) {
+    reportChartInstance = new ApexCharts(container, options);
+    reportChartInstance.render();
+  }
+
+  let listHTML = '';
+  values.forEach((val, index) => {
+    let percent = total > 0 ? Math.round((val / total) * 100) : 0;
+    listHTML += `
+      <div class="flex items-center justify-between bg-white hover:bg-gray-50 transition-all rounded-2xl p-2.5 border border-gray-100 shadow-sm">
+         <div class="flex items-center gap-3 w-full pr-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm shadow-inner shrink-0" style="background-color: ${colors[index]}20; border: 1px solid ${colors[index]}50;">
+               ${icons[index]}
+            </div>
+            <div class="w-full">
+               <div class="flex justify-between items-end mb-1">
+                  <p class="text-xs text-gray-700 font-extrabold">${labels[index]}</p>
+                  <span class="text-[10px] font-black" style="color: ${colors[index]}; opacity: 0.7;">${percent}%</span>
+               </div>
+               <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                  <div class="h-full rounded-full transition-all duration-1000" style="width: ${percent}%; background-color: ${colors[index]};"></div>
+               </div>
+            </div>
+         </div>
+         <div class="px-3 py-1.5 rounded-xl border shrink-0" style="background-color: ${colors[index]}10; border-color: ${colors[index]}30;">
+            <span class="text-sm font-black" style="color: ${colors[index]};">${val}</span>
+         </div>
+      </div>
+    `;
+  });
+  if(listContainer) listContainer.innerHTML = listHTML;
+}
+
+/**
+ * =========================================================================
+ * 🚀 S.A.M. ULTIMATE REPORT ENGINE (Native Canvas Drawing - V.6 HK Ready)
+ * =========================================================================
+ */
+
+function formatDisplayDate(dateStr) {
+    if (!dateStr || dateStr === "") return "ไม่ระบุ";
+    if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`; 
+    }
+    return dateStr;
+}
+
+async function getApexChartBase64() {
+    return new Promise((resolve) => {
+        if (typeof reportChartInstance === 'undefined' || !reportChartInstance) { resolve(""); return; }
+        try { reportChartInstance.dataURI().then(({ imgURI }) => { resolve(imgURI); }).catch(() => { resolve(""); });
+        } catch (error) { resolve(""); }
+    });
+}
+
+function loadImageToCanvas(base64Src) {
+    return new Promise((resolve) => {
+        if (!base64Src) { resolve(null); return; }
+        const img = new Image(); img.crossOrigin = "Anonymous";
+        img.onload = () => resolve(img); img.onerror = () => resolve(null);
+        img.src = base64Src;
+    });
+}
+
+function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+    ctx.beginPath(); ctx.moveTo(x + radius, y); ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius); ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height); ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius); ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y); ctx.closePath();
+    if (fill) ctx.fill(); if (stroke) ctx.stroke();
+}
+
+function drawNativeStatusCard(ctx, x, y, width, label, count, total, color, icon) {
+    const height = 70;
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    const fontName = "'Noto Sans Thai', sans-serif";
+
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0,0,0,0.05)"; ctx.shadowBlur = 10;
+    roundRect(ctx, x, y, width, height, 15, true, false);
+    ctx.shadowBlur = 0; 
+
+    ctx.beginPath(); ctx.arc(x + 35, y + 35, 18, 0, 2 * Math.PI);
+    ctx.fillStyle = color + "20"; ctx.fill(); 
+    ctx.fillStyle = color; ctx.font = "20px Arial"; ctx.textAlign = "center"; ctx.fillText(icon, x + 35, y + 42);
+
+    ctx.textAlign = "left"; ctx.fillStyle = "#374151"; ctx.font = `bold 20px ${fontName}`;
+    ctx.fillText(label, x + 70, y + 33);
+
+    ctx.textAlign = "right"; ctx.fillStyle = color; ctx.font = `900 18px ${fontName}`;
+    ctx.fillText(`${pct}%`, x + width - 100, y + 33); 
+
+    const barW = width - 170; const barX = x + 70; const barY = y + 45;
+    ctx.fillStyle = "#F3F4F6"; roundRect(ctx, barX, barY, barW, 10, 5, true, false); 
+    if (pct > 0) {
+        ctx.fillStyle = color; roundRect(ctx, barX, barY, (pct / 100) * barW, 10, 5, true, false); 
+    }
+
+    ctx.fillStyle = color + "15"; ctx.strokeStyle = color + "40";
+    roundRect(ctx, x + width - 75, y + 15, 60, 40, 10, true, true);
+    ctx.textAlign = "center"; ctx.fillStyle = color; ctx.font = `900 22px ${fontName}`;
+    ctx.fillText(count, x + width - 45, y + 43);
+}
+
+async function downloadReport(exportType) {
+    if (!currentReportData || !currentReportData.summary) {
+        Swal.fire('แจ้งเตือน', 'กรุณาดึงข้อมูลรายงานก่อนทำการดาวน์โหลดครับ', 'warning'); return;
+    }
+
+    showLoadingAlert('S.A.M. กำลังเตรียมข้อมูลรูปภาพและสร้างรายงาน...', 'download');
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    try {
+        const summary = currentReportData.summary; const issues = summary.issueList || [];
+        const reportTypeVal = document.getElementById('reportType').value;
+        const isHK = reportTypeVal === 'Routine_HK';
+
+        let reportTypeName = "";
+        if (reportTypeVal === 'Routine') reportTypeName = "รายงานการเดินตรวจรอบ (Routine)";
+        else if (reportTypeVal === 'Routine_HK') reportTypeName = "รายงานผลการปฏิบัติงาน (Housekeeping)";
+        else reportTypeName = "รายงานความปลอดภัย (Safety Audit)";
+
+        const rawStart = document.getElementById('startDate').value || instantStartDate;
+        const rawEnd = document.getElementById('endDate').value || instantEndDate;
+
+        const startDate = formatDisplayDate(rawStart);
+        const endDate = formatDisplayDate(rawEnd);
+
+        const passCount = summary.statusCount.Normal || 0;
+        const warnCount = summary.statusCount.Warning || 0;
+        const failCount = summary.statusCount.Critical || 0;
+        const totalCount = passCount + warnCount + failCount;
+
+        const preloadedImages = [];
+        if (issues.length > 0) {
+            for (let i = 0; i < issues.length; i++) {
+                let imgUrl = issues[i].imageUrl || issues[i].image || issues[i].picture || null;
+                if (imgUrl) {
+                    let imgObj = await loadImageToCanvas(imgUrl);
+                    preloadedImages.push(imgObj);
+                } else {
+                    preloadedImages.push(null);
+                }
+            }
+        }
+
+        const chartBase64 = await getApexChartBase64();
+        const chartImg = await loadImageToCanvas(chartBase64);
+
+        // 🎯 ดึงข้อมูลจาก AI Dashboard บนหน้าจอ
+        const aiGrade = document.getElementById('aiGradeLetter').innerText || "?";
+        const aiPctStr = document.getElementById('aiGradePercent').innerText || "[ 0% ]";
+        const aiInsight = document.getElementById('aiInsightText').innerText || "";
+        const aiScore = document.getElementById('aiScoreVal').innerText || "-";
+        const aiEvidence = document.getElementById('aiEvidenceVal').innerText || "-";
+        const aiEvidenceSubText = document.getElementById('aiEvidenceSub').innerText || "รอประมวลผล"; 
+        const aiPace = document.getElementById('aiPaceVal').innerText || "-";
+        const aiPaceText = document.getElementById('aiPaceSub').innerText || "";
+
+        // 🎯 ดึงเฉพาะตัวเลข % ออกมา เพื่อคำนวณสีให้ตรงกับหน้าเว็บเป๊ะๆ
+        let pctNumber = parseInt(aiPctStr.replace(/\D/g, '')) || 0;
+
+        let gradeColor = "#ef4444"; let insightBg = "#FEF2F2"; let insightText = "#B91C1C"; let insightBorder = "#FECACA"; // สีแดง
+
+        if (pctNumber === 100) {
+            gradeColor = "#16a34a"; insightBg = "#F0FDF4"; insightText = "#15803D"; insightBorder = "#86EFAC"; // สีเขียว
+        } else if (pctNumber >= 90) {
+            gradeColor = "#06245C"; insightBg = "#EFF6FF"; insightText = "#1D4ED8"; insightBorder = "#BFDBFE"; // สีน้ำเงิน
+        } else if (pctNumber >= 70) {
+            gradeColor = "#f97316"; insightBg = "#FFF7ED"; insightText = "#C2410C"; insightBorder = "#FED7AA"; // สีส้ม
+        }
+
+        const w = 1200; const h = 1697; const rowHeight = 90;
+        const fontName = "'Noto Sans Thai', sans-serif";
+        const maxItemsPageNext = 12;
+        let totalPages = 1; if (issues.length > 0) totalPages = 1 + Math.ceil(issues.length / maxItemsPageNext);
+
+        const pagesCanvases = []; let itemsDrawn = 0; let pageNum = 1;
+
+        while (itemsDrawn < issues.length || pageNum === 1) {
+            const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h); let currentY = 0;
+
+            if (pageNum === 1) {
+                ctx.fillStyle = "#06245C"; ctx.fillRect(0, 0, w, 160); ctx.fillStyle = "#F5F8FB"; ctx.fillRect(0, 160, w, 8);
+                ctx.fillStyle = "#ffffff"; ctx.textAlign = "center";
+                ctx.font = `900 65px ${fontName}`; ctx.fillText("T | H | A", w / 2, 90);
+                ctx.font = `bold 22px ${fontName}`; ctx.letterSpacing = "4px"; ctx.fillText("By TH District", w / 2, 135); ctx.letterSpacing = "0px";
+                currentY = 220;
+            } else { currentY = 100; }
+
+            ctx.fillStyle = "#666666"; ctx.font = `bold 20px ${fontName}`; ctx.textAlign = "left";
+            ctx.fillText("ประเภทรายงาน", 60, currentY); ctx.textAlign = "right"; ctx.fillText(`ตั้งแต่วันที่ : ${startDate}`, w - 60, currentY);
+            currentY += 40; ctx.fillStyle = "#06245C"; ctx.font = `bold 30px ${fontName}`; ctx.textAlign = "left";
+            ctx.fillText(reportTypeName, 60, currentY); ctx.fillStyle = "#666666"; ctx.font = `bold 20px ${fontName}`; ctx.textAlign = "right";
+            ctx.fillText(`ถึงวันที่ : ${endDate}`, w - 60, currentY - 5);
+            currentY += 30; ctx.strokeStyle = "#E5E7EB"; ctx.lineWidth = 2; ctx.beginPath();
+            ctx.moveTo(60, currentY); ctx.lineTo(w - 60, currentY); ctx.stroke(); currentY += 45;
+
+            if (pageNum === 1) {
+                // ==========================================
+                // 🤖 วาด AI Dashboard ลงบน PDF
+                // ==========================================
+                ctx.fillStyle = "#F8FAFC"; ctx.strokeStyle = "#BFDBFE"; ctx.lineWidth = 2;
+                roundRect(ctx, 60, currentY, 1080, 140, 20, true, true);
+
+                ctx.textAlign = "center"; ctx.fillStyle = "#06245C"; ctx.font = `bold 18px ${fontName}`;
+                ctx.fillText("ประสิทธิภาพการทำงานรอบนี้", w/2, currentY + 35);
+
+                // 🎯 [แก้ไข] แยกวาดคำว่า "Grade" (สีน้ำเงิน) และ "A+ [ 100% ]" (สีตามเกณฑ์)
+                ctx.font = `900 48px ${fontName}`;
+                let textGrade = "Grade ";
+                let textScore = `${aiGrade}  ${aiPctStr}`;
+                let wGrade = ctx.measureText(textGrade).width;
+                let wScore = ctx.measureText(textScore).width;
+                let totalW = wGrade + wScore;
+                let startX = (w / 2) - (totalW / 2);
+
+                ctx.textAlign = "left";
+                ctx.fillStyle = "#06245C"; // ล็อคสีคำว่า Grade
+                ctx.fillText(textGrade, startX, currentY + 88);
+
+                ctx.fillStyle = gradeColor; // สี A+ เปลี่ยนตามเกณฑ์
+                ctx.fillText(textScore, startX + wGrade, currentY + 88);
+                
+                ctx.textAlign = "center"; // คืนค่ากลับให้ตรงกลางเหมือนเดิม
+
+                // วาดกล่องคำชื่นชม AI
+                ctx.font = `bold 16px ${fontName}`;
+                let insightWidth = ctx.measureText(aiInsight).width + 36;
+                ctx.fillStyle = insightBg; ctx.strokeStyle = insightBorder; ctx.lineWidth = 1;
+                roundRect(ctx, (w/2) - (insightWidth/2), currentY + 105, insightWidth, 26, 13, true, true);
+                ctx.fillStyle = insightText;
+                ctx.fillText(aiInsight, w/2, currentY + 124);
+
+                currentY += 160;
+
+                let cardW = 340; let cardsX = [60, 430, 800];
+                // กำหนดชื่อการ์ดใบแรกให้ตรงกับโหมด
+                let card1Title = "🛡️ Security Score";
+                if (isHK) card1Title = "✨ Hygiene Score";
+                else if (reportTypeVal === 'Safety') card1Title = "🛡️ Safety Score";
+
+                let cardTitles = [card1Title, "📸 อัตราแนบรูป", "⚡ Average Pace"];
+                let cardVals = [aiScore, aiEvidence, aiPace];
+                let cardSubs = ["ความสมบูรณ์ข้อมูล", aiEvidenceSubText, aiPaceText];
+
+                for(let i=0; i<3; i++) {
+                    ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#E5E7EB"; ctx.lineWidth = 2;
+                    roundRect(ctx, cardsX[i], currentY, cardW, 110, 20, true, true);
+
+                    ctx.textAlign = "center"; ctx.fillStyle = "#06245C"; ctx.font = `bold 16px ${fontName}`;
+                    ctx.fillText(cardTitles[i], cardsX[i] + cardW/2, currentY + 30);
+
+                    let valColor = "#64748B";
+                    if(cardVals[i] === "100%") valColor = "#06245C";
+                    if(i === 2 && (aiPaceText.includes("มาตรฐาน") || aiPaceText.includes("ละเอียด"))) valColor = "#06245C";
+
+                    ctx.fillStyle = valColor;
+                    ctx.font = `900 38px ${fontName}`;
+                    ctx.fillText(cardVals[i], cardsX[i] + cardW/2, currentY + 74);
+
+                    ctx.fillStyle = "#94A3B8"; ctx.font = `bold 14px ${fontName}`;
+                    ctx.fillText(cardSubs[i], cardsX[i] + cardW/2, currentY + 98);
+                }
+
+                currentY += 130;
+
+                // ==========================================
+                // 🚨 วาดกล่องรายการจุดแก้ไข (Accordion ใน PDF)
+                // ==========================================
+                let totalDefects = warnCount + failCount;
+                if (totalDefects > 0) {
+                    let defectBoxHeight = 45 + (totalDefects * 60);
+
+                    ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#FECACA"; ctx.lineWidth = 1.5;
+                    roundRect(ctx, 60, currentY, 1080, defectBoxHeight, 15, true, true);
+
+                    ctx.fillStyle = "#B91C1C"; ctx.font = `bold 16px ${fontName}`; ctx.textAlign = "left";
+                    ctx.fillText("📋 รายละเอียดจุดที่ต้องแก้ไข", 80, currentY + 28);
+
+                    ctx.strokeStyle = "#FEE2E2"; ctx.beginPath(); ctx.moveTo(70, currentY + 40); ctx.lineTo(1130, currentY + 40); ctx.stroke();
+
+                    let dY = currentY + 65;
+                    issues.forEach(iss => {
+                        let statusTxt = iss.status.replace(/🔴|🟠|🟢/g, '').trim();
+                        let isWarnOrCritical = iss.status.includes('🔴') || iss.status.includes('🟠') || statusTxt.includes('ผิดปกติ') || statusTxt.includes('อุปสรรค') || statusTxt.includes('ซ่อม') || statusTxt.includes('รอ');
+
+                        if (isWarnOrCritical) {
+                            let rawLoc = iss.location || iss.category || '';
+                            let formattedLoc = rawLoc.replace(/\s*-\s*/, ' | ');
+
+                            ctx.fillStyle = "#B91C1C"; ctx.font = `bold 14px ${fontName}`;
+                            ctx.fillText(formattedLoc, 80, dY);
+
+                            ctx.fillStyle = "#4B5563"; ctx.font = `12px ${fontName}`;
+                            ctx.fillText(iss.details || "ไม่มีระบุหมายเหตุ", 80, dY + 18);
+
+                            if (iss.gmrl && iss.gmrl !== '-') {
+                                ctx.fillStyle = "#2563EB"; ctx.font = `bold 12px ${fontName}`;
+                                ctx.fillText(`Ref: ${iss.gmrl}`, 80, dY + 36);
+                                dY += 55;
+                            } else {
+                                dY += 45;
+                            }
+                        }
+                    });
+                    currentY += defectBoxHeight + 30; 
+                } else {
+                    currentY += 20; 
+                }
+                // ==========================================
+
+                let pillText = isHK ? "รายการงานทั้งหมด" : "ตรวจพบทั้งหมด";
+
+                if (chartImg) {
+                    ctx.drawImage(chartImg, (w / 2) - 230, currentY, 460, 460);
+                    ctx.textAlign = "center"; ctx.fillStyle = "#06245C"; ctx.font = `900 75px ${fontName}`;
+                    ctx.fillText(totalCount, w / 2, currentY + 235);
+
+                    const pillW = 160; const pillH = 34; const pillX = (w / 2) - (pillW / 2); const pillY = currentY + 252;
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.4)"; ctx.strokeStyle = "rgba(6, 36, 92, 0.1)"; ctx.lineWidth = 1;
+                    roundRect(ctx, pillX, pillY, pillW, pillH, 17, true, true);
+                    ctx.fillStyle = "#06245C"; ctx.font = `900 13px ${fontName}`; ctx.letterSpacing = "1.5px";
+                    ctx.fillText(pillText, w / 2, pillY + 22); ctx.letterSpacing = "0px";
+
+                    ctx.fillStyle = "#A5A5A5"; ctx.font = `bold 14px ${fontName}`;
+                    ctx.fillText("BY THA SMART ASSET SYSTEM [ S.A.M. ]", w / 2, currentY + 440);
+                }
+
+                currentY += 500;
+
+                const cardW_status = 640; const cardX_status = (w - cardW_status) / 2;
+                ctx.textAlign = "left"; ctx.fillStyle = "#06245C"; ctx.font = `900 24px ${fontName}`;
+                ctx.fillText(isHK ? "• สรุปสัดส่วนผลการปฏิบัติงาน" : "• สรุปสัดส่วนสถานะการตรวจ", cardX_status, currentY - 20);
+
+                let lblCard1 = isHK ? "เสร็จสมบูรณ์ (Done)" : "ปกติ (Normal)";
+                let lblCard2 = isHK ? "รอดำเนินการ (Pending)" : "แจ้งซ่อม (Warning)";
+                let lblCard3 = isHK ? "พบอุปสรรค (Issue)" : "ผิดปกติ (Critical)";
+
+                drawNativeStatusCard(ctx, cardX_status, currentY, cardW_status, lblCard1, passCount, totalCount, "#22c55e", "✅"); currentY += 85;
+                drawNativeStatusCard(ctx, cardX_status, currentY, cardW_status, lblCard2, warnCount, totalCount, "#f97316", "🔧"); currentY += 85;
+                drawNativeStatusCard(ctx, cardX_status, currentY, cardW_status, lblCard3, failCount, totalCount, "#ef4444", "🚨");
+            }
+
+            if (pageNum > 1 && issues.length > 0) {
+                ctx.textAlign = "left";
+                if (isHK) {
+                    ctx.fillStyle = "#16a34a"; ctx.font = `900 28px ${fontName}`;
+                    ctx.fillText("✨ รายการผลการปฏิบัติงาน (KPI)", 60, currentY);
+                } else {
+                    ctx.fillStyle = "#ef4444"; ctx.font = `900 28px ${fontName}`;
+                    ctx.fillText("🚨 รายการที่พบปัญหา", 60, currentY);
+                }
+                currentY += 40;
+
+                ctx.fillStyle = "#F9FAFB"; ctx.fillRect(60, currentY - 35, w - 120, 50);
+                ctx.fillStyle = "#1a1a1a"; ctx.font = `bold 20px ${fontName}`; ctx.textAlign = "left";
+                ctx.fillText("ID | ผู้ปฏิบัติงาน", 80, currentY);
+                ctx.fillText("พื้นที่ | โซน", 230, currentY);
+                ctx.fillText("รายละเอียด", 470, currentY);
+                ctx.fillText("ภาพประกอบ", 750, currentY);
+                ctx.fillText("สถานะ", 950, currentY);
+                currentY += 50;
+            }
+
+            if (issues.length === 0 && pageNum === 1) {
+                currentY = h - 150;
+                ctx.fillStyle = "#22c55e"; ctx.font = `bold 24px ${fontName}`; ctx.textAlign = "center";
+                let emptyText = isHK ? "✨ ไม่มีประวัติการปฏิบัติงานในรอบนี้" : "🎉 ไม่พบปัญหาในรอบการตรวจนี้";
+                ctx.fillText(emptyText, w / 2, currentY);
+                itemsDrawn = 1;
+            } else if (pageNum > 1) {
+                let drawnThisPage = 0;
+                while (itemsDrawn < issues.length && drawnThisPage < maxItemsPageNext) {
+                    const issue = issues[itemsDrawn];
+                    let locStr = issue.location || ""; let line1Loc = ""; let line2Loc = "";
+                    if (locStr.includes('-')) { let parts = locStr.split('-'); line1Loc = parts[0].trim(); line2Loc = parts.slice(1).join('-').trim();
+                    } else { line1Loc = locStr; }
+
+                    if (line1Loc.length > 20) line1Loc = line1Loc.substring(0, 18) + "...";
+                    if (line2Loc.length > 25) line2Loc = line2Loc.substring(0, 22) + "...";
+                    let line1Det = issue.details || "-";
+                    if (line1Det.length > 25) line1Det = line1Det.substring(0, 22) + "...";
+                    let line2Det = issue.gmrl && issue.gmrl !== '-' ? `(Ref: ${issue.gmrl})` : '';
+
+                    ctx.fillStyle = "#374151"; ctx.textAlign = "left"; ctx.font = `bold 18px ${fontName}`;
+                    ctx.fillText(issue.id || "-", 80, currentY); ctx.fillStyle = "#D1D5DB"; ctx.fillText("|", 210, currentY);
+                    ctx.fillStyle = "#374151"; ctx.fillText(line1Loc, 230, currentY); ctx.fillStyle = "#D1D5DB"; ctx.fillText("|", 450, currentY);
+                    ctx.fillStyle = "#374151"; ctx.fillText(line1Det, 470, currentY); ctx.fillStyle = "#D1D5DB"; ctx.fillText("|", 730, currentY);
+
+                    let thumbImg = preloadedImages[itemsDrawn];
+                    let imgX = 750; let imgY = currentY - 20; let imgW = 120; let imgH = 65;
+                    if (thumbImg) {
+                        ctx.save(); ctx.beginPath(); let r = 8;
+                        ctx.moveTo(imgX + r, imgY); ctx.lineTo(imgX + imgW - r, imgY); ctx.quadraticCurveTo(imgX + imgW, imgY, imgX + imgW, imgY + r);
+                        ctx.lineTo(imgX + imgW, imgY + imgH - r); ctx.quadraticCurveTo(imgX + imgW, imgY + imgH, imgX + imgW - r, imgY + imgH);
+                        ctx.lineTo(imgX + r, imgY + imgH); ctx.quadraticCurveTo(imgX, imgY + imgH, imgX, imgY + imgH - r);
+                        ctx.lineTo(imgX, imgY + r); ctx.quadraticCurveTo(imgX, imgY, imgX + r, imgY); ctx.closePath(); ctx.clip();
+                        let imgAspect = thumbImg.width / thumbImg.height; let boxAspect = imgW / imgH; let drawW, drawH, drawX, drawY;
+                        if (imgAspect > boxAspect) { drawH = imgH; drawW = thumbImg.width * (imgH / thumbImg.height); drawX = imgX - (drawW - imgW) / 2; drawY = imgY; }
+                        else { drawW = imgW; drawH = thumbImg.height * (imgW / thumbImg.width); drawX = imgX; drawY = imgY - (drawH - imgH) / 2; }
+                        ctx.drawImage(thumbImg, drawX, drawY, drawW, drawH); ctx.restore();
+                        ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.lineWidth = 1; ctx.beginPath(); roundRect(ctx, imgX, imgY, imgW, imgH, 8, false, true);
+                    } else {
+                        ctx.fillStyle = "#F3F4F6"; ctx.beginPath(); roundRect(ctx, imgX, imgY, imgW, imgH, 8, true, false);
+                        ctx.fillStyle = "#9CA3AF"; ctx.textAlign = "center"; ctx.font = `14px ${fontName}`; ctx.fillText("ไม่มีรูป", imgX + (imgW/2), imgY + (imgH/2) + 5);
+                    }
+
+                    ctx.fillStyle = "#D1D5DB"; ctx.textAlign = "left"; ctx.fillText("|", 900, currentY);
+                    ctx.font = `bold 14px ${fontName}`; ctx.fillStyle = "#3B82F6";
+
+                    let inspectorName = issue.inspector || "-";
+                    if(inspectorName.length > 15) inspectorName = inspectorName.substring(0, 12) + "...";
+                    ctx.fillText(inspectorName, 80, currentY + 30);
+
+                    ctx.fillStyle = "#D1D5DB"; ctx.fillText("|", 210, currentY + 30);
+                    ctx.fillStyle = "#3B82F6"; if (line2Loc) ctx.fillText(line2Loc, 230, currentY + 30);
+                    ctx.fillStyle = "#D1D5DB"; ctx.fillText("|", 450, currentY + 30);
+                    ctx.fillStyle = "#3B82F6"; if (line2Det) ctx.fillText(line2Det, 470, currentY + 30);
+                    ctx.fillStyle = "#D1D5DB"; ctx.fillText("|", 730, currentY + 30);
+                    ctx.fillStyle = "#D1D5DB"; ctx.fillText("|", 900, currentY + 30);
+
+                    let statusTxt = issue.status.replace(/🔴|🟠|🟢/g, '').trim();
+                    let isCritical = issue.status.includes('🔴') || statusTxt.includes('ผิดปกติ') || statusTxt.includes('อุปสรรค');
+                    let statusColor = isCritical ? "#ef4444" : (issue.status.includes('🟠') || statusTxt.includes('ซ่อม') || statusTxt.includes('รอ') ? "#f97316" : "#22c55e");
+
+                    ctx.beginPath(); ctx.arc(930, currentY + 8, 8, 0, 2 * Math.PI); ctx.fillStyle = statusColor; ctx.fill();
+                    ctx.fillStyle = statusColor; ctx.font = `bold 20px ${fontName}`; ctx.fillText(statusTxt, 950, currentY + 14);
+
+                    ctx.strokeStyle = "#D1D5DB"; ctx.lineWidth = 1; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(60, currentY + 55); ctx.lineTo(w - 60, currentY + 55); ctx.stroke(); ctx.setLineDash([]);
+
+                    currentY += rowHeight; itemsDrawn++; drawnThisPage++;
+                }
+            }
+
+            pagesCanvases.push(canvas);
+            if (itemsDrawn >= issues.length && pageNum > 1) break;
+            if (issues.length === 0 && pageNum === 1) break;
+            pageNum++;
+        }
+
+        pagesCanvases.forEach((c, idx) => {
+            const pCtx = c.getContext('2d');
+            pCtx.fillStyle = "#D1D5DB"; pCtx.textAlign = "center"; pCtx.font = `bold 20px ${fontName}`; pCtx.fillText("Summary of the report by T | H | A [ S.A.M. ]", w / 2, h - 60);
+            pCtx.fillStyle = "#9CA3AF"; pCtx.textAlign = "right"; pCtx.font = `bold 20px ${fontName}`; pCtx.fillText(`หน้า ${idx + 1} / ${pagesCanvases.length}`, w - 60, h - 60);
+        });
+
+        const now = new Date(); const yyyymmdd = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+        const timestamp = String(now.getHours()).padStart(2, '0') + String(now.getMinutes()).padStart(2, '0') + String(now.getSeconds()).padStart(2, '0');
+        const typePrefix = reportTypeVal === 'Routine' ? 'RT' : (reportTypeVal === 'Routine_HK' ? 'HK' : 'SA');
+        const fileName = `THA_Report_${typePrefix}-${yyyymmdd}-${timestamp}`;
+
+        let exportedBlob = null;
+        let exportedFileName = `${fileName}.${exportType.toLowerCase()}`;
+
+        if (exportType === 'JPG') {
+            const stitchCanvas = document.createElement('canvas'); stitchCanvas.width = w; stitchCanvas.height = h * pagesCanvases.length;
+            const stitchCtx = stitchCanvas.getContext('2d'); pagesCanvases.forEach((c, index) => { stitchCtx.drawImage(c, 0, index * h); });
+
+            const dataUrl = stitchCanvas.toDataURL('image/jpeg', 0.95);
+            exportedBlob = await (await fetch(dataUrl)).blob();
+
+            const link = document.createElement('a'); link.href = dataUrl; link.download = exportedFileName; link.click();
+        } else if (exportType === 'PDF') {
+            const { jsPDF } = window.jspdf; const pdf = new jsPDF('p', 'pt', 'a4');
+            pagesCanvases.forEach((c, index) => { if (index > 0) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 595.28, 841.89); });
+
+            exportedBlob = pdf.output('blob');
+            pdf.save(exportedFileName);
+        }
+
+        let shareBtnHtml = '';
+        if (navigator.canShare) {
+            window.tempShareFile = new File([exportedBlob], exportedFileName, { type: exportedBlob.type });
+            shareBtnHtml = `<div class="mt-4 border-t border-gray-100 pt-3">
+                                <button onclick="triggerNativeShare()" class="bg-[#06245C] hover:bg-blue-800 text-white font-bold py-2.5 px-4 rounded-xl shadow-md w-full flex items-center justify-center gap-2 transition-all active:scale-95">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                                    แชร์ส่งต่อ (Share)
+                                </button>
+                            </div>`;
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: 'บันทึกสำเร็จ!',
+            html: `<p class="text-sm text-gray-600 mb-2">ไฟล์ <strong class="text-blue-600">${exportedFileName}</strong> ถูกบันทึกแล้ว</p>${shareBtnHtml}`,
+            customClass: { popup: 'rounded-[2rem]', container: 'z-[999999]' }
+        });
+
+    } catch (error) {
+        console.error(error); Swal.fire({ icon: 'error', title: 'ข้อผิดพลาด', text: 'ไม่สามารถสร้างไฟล์ได้: ' + error.message, customClass: { popup: 'rounded-3xl', container: 'z-[999999]' } });
+    }
+}
+
+// ฟังก์ชันสำหรับเรียกหน้าต่าง Share ของมือถือ/คอม
+window.triggerNativeShare = async function() {
+    if(window.tempShareFile) {
+        try {
+            await navigator.share({
+                files: [window.tempShareFile],
+                title: 'รายงาน S.A.M.',
+                text: 'ส่งรายงานสรุปผลการปฏิบัติงาน'
+            });
+        } catch (err) {
+            console.log('Share canceled or not supported', err);
+        }
+    }
+}
+
+/**
+ * =========================================================================
+ * 🤖 AI OPERATIONS ANALYST (ฟังก์ชันคำนวณเกรดและประเมินผลอัจฉริยะ)
+ * =========================================================================
+ */
+function renderAIDashboard(data, isHK, passCount, warnCount, failCount, totalCount) {
+    const resetToEmpty = () => {
+        document.getElementById('aiGradeLetter').innerText = "?";
+        document.getElementById('aiGradeLetter').className = "text-3xl sm:text-4xl font-black drop-shadow-sm text-gray-400";
+        document.getElementById('aiGradePercent').innerText = "[ 0% ]";
+        document.getElementById('aiGradePercent').className = "text-xl font-black drop-shadow-sm text-gray-400";
+        document.getElementById('aiInsightText').innerText = 'รอการประมวลผลข้อมูล...';
+        document.getElementById('aiInsightText').className = "text-[11px] sm:text-xs font-bold inline-block px-4 py-1.5 rounded-full border shadow-sm transition-colors bg-gray-100 text-gray-400 border-gray-200";
+        document.getElementById('aiScoreVal').innerText = '-';
+        document.getElementById('aiScoreVal').className = "text-2xl font-black leading-none text-gray-400";
+        document.getElementById('aiEvidenceVal').innerText = '-';
+        document.getElementById('aiEvidenceVal').className = "text-2xl font-black leading-none text-gray-400";
+        document.getElementById('aiEvidenceSub').innerHTML = 'รอประมวลผล';
+        document.getElementById('aiPaceVal').innerText = '-';
+        document.getElementById('aiPaceVal').className = "text-2xl font-black leading-none text-gray-400";
+        document.getElementById('aiPaceSub').innerHTML = 'นาที / จุด';
+        document.getElementById('aiDefectAlert').classList.add('hidden');
+        document.getElementById('defectContainerWrapper').classList.add('hidden');
+    };
+
+    if (!totalCount || totalCount === 0 || !data.records || data.records.length === 0) {
+        resetToEmpty(); return;
+    }
+
+    const records = data.records;
+    const summary = data.summary || {};
+    let actualTotal = totalCount;
+    
+    let filteredRecords = records.filter(r => {
+        let rowContent = JSON.stringify(r).toUpperCase();
+        if (isHK) return rowContent.includes('HK'); 
+        return rowContent.includes('RT') || rowContent.includes('SA') || !rowContent.includes('HK');
+    });
+
+    let badPoints = 0;
+    let defectHTML = "";
+    let totalDefects = 0;
+
+    if (summary.issueList) {
+        summary.issueList.forEach(issue => {
+            let statusTxt = issue.status.replace(/🔴|🟠|🟢/g, '').trim();
+            let isWarnOrCritical = issue.status.includes('🔴') || issue.status.includes('🟠') || statusTxt.includes('ผิดปกติ') || statusTxt.includes('อุปสรรค') || statusTxt.includes('ซ่อม');
+            if (isWarnOrCritical) {
+                totalDefects++;
+                if (!(issue.gmrl && issue.gmrl !== '-') && !(issue.details && issue.details.length > 2)) badPoints++; 
+                let formattedLoc = (issue.location || issue.category || '').replace(/\s*-\s*/, ' | ');
+                defectHTML += `<div class="mb-1.5 pb-1.5 border-b border-gray-200 last:border-0"><p class="text-[11px] font-bold text-red-700">${formattedLoc}</p><p class="text-[10px] text-gray-600">${issue.details || 'ไม่มีระบุหมายเหตุ'}</p></div>`;
+            }
+        });
+    }
+
+    let scorePercent = Math.round(((actualTotal - badPoints) / actualTotal) * 100);
+    if (scorePercent < 0) scorePercent = 0;
+
+    // 📸 ลอจิก 2: นับรูปภาพ และเตรียมข้อมูลเวลา (Timestamps)
+    let imageCount = 0;
+    let timestamps = [];
+    filteredRecords.forEach(r => {
+        let img = r.image || r.imageUrl || r.picture || r.Image || r.imageLink || r['Image Link'];
+        if (img && img.toString().trim() !== '' && img !== '-') imageCount++;
+        
+        // 🎯 ดักจับคอลัมน์เวลาให้ครอบคลุมขึ้น
+        let ts = r.timestamp || r.Timestamp || r.TimeStamp || r.Time || r['เวลา'] || r.Date;
+        if (ts) {
+            let parsed = new Date(ts);
+            if (!isNaN(parsed.getTime())) timestamps.push(parsed);
+        }
+    });
+
+    if (imageCount > actualTotal) imageCount = actualTotal;
+    let evidencePercent = Math.round((imageCount / actualTotal) * 100);
+
+    // ⚡ ลอจิก 3: Pace (แก้ปัญหา "ข้อมูลไม่พอ")
+    let paceVal = "-"; let paceText = "ข้อมูลไม่พอ";
+    if (timestamps.length >= 2) {
+        timestamps.sort((a, b) => a - b);
+        let totalMins = 0; let steps = 0;
+        for (let i = 1; i < timestamps.length; i++) {
+            let diff = (timestamps[i] - timestamps[i-1]) / 60000; // แปลงเป็นนาที
+            // 🎯 ปรับให้กรองกว้างขึ้น: ถ้าระยะห่างมากกว่า 0 แต่ไม่เกิน 60 นาที ให้เอามาคำนวณ!
+            if (diff > 0 && diff <= 60) { 
+                totalMins += diff; 
+                steps++; 
+            }
+        }
+        if (steps > 0) {
+            paceVal = (totalMins / steps).toFixed(1);
+            paceText = (paceVal <= 5) ? "🚶‍♂️ ความเร็วมาตรฐาน" : "🔎 ตรวจสอบละเอียด";
+        }
+    }
+
+    // 🌟 กำหนดเกรดและสี
+    let grade = "C"; let insight = "👀 มีจุดที่ยังจัดการไม่เรียบร้อย";
+    let colorGrade = "text-red-600"; let bgInsight = "bg-red-50 text-red-600 border-red-200";
+
+    if (scorePercent === 100) {
+        grade = "A+"; insight = "🌟 ยอดเยี่ยม! ภารกิจสำเร็จสมบูรณ์";
+        colorGrade = "text-[#16a34a]"; bgInsight = "bg-[#f0fdf4] text-[#15803d] border-[#86efac]";
+    } else if (scorePercent >= 90) {
+        grade = "A"; insight = "💪 ทำได้ดีมาก ภารกิจสำเร็จเกือบสมบูรณ์";
+        colorGrade = "text-[#06245C]"; bgInsight = "bg-blue-50 text-[#1d4ed8] border-blue-200";
+    } else if (scorePercent >= 70) {
+        grade = "B"; insight = "✌️ ทำได้ดี รักษามารตฐานไว้นะ";
+        colorGrade = "text-orange-500"; bgInsight = "bg-orange-50 text-orange-700 border-orange-200";
+    }
+
+    document.getElementById('aiGradeLetter').innerText = grade;
+    document.getElementById('aiGradeLetter').className = `text-3xl sm:text-4xl font-black drop-shadow-sm ${colorGrade}`;
+    document.getElementById('aiGradePercent').innerText = `[ ${scorePercent}% ]`;
+    document.getElementById('aiGradePercent').className = `text-xl font-black drop-shadow-sm ${colorGrade}`;
+    document.getElementById('aiInsightText').innerText = insight;
+    document.getElementById('aiInsightText').className = `text-[11px] sm:text-xs font-bold inline-block px-4 py-1.5 rounded-full border shadow-sm ${bgInsight}`;
+
+    const mainColor = (scorePercent >= 90) ? "text-[#06245C]" : "text-gray-800";
+    document.getElementById('aiScoreVal').innerText = `${scorePercent}%`;
+    document.getElementById('aiScoreVal').className = `text-2xl font-black ${mainColor}`;
+    document.getElementById('aiEvidenceVal').innerText = `${evidencePercent}%`;
+    document.getElementById('aiEvidenceVal').className = `text-2xl font-black ${evidencePercent === 100 ? "text-[#06245C]" : "text-gray-800"}`;
+    document.getElementById('aiEvidenceSub').innerText = `หลักฐานครบ (${imageCount}/${actualTotal} รูป)`;
+    document.getElementById('aiPaceVal').innerText = paceVal;
+    document.getElementById('aiPaceVal').className = `text-2xl font-black ${paceVal !== '-' ? "text-[#06245C]" : "text-gray-800"}`;
+    document.getElementById('aiPaceSub').innerText = paceText;
+
+    if (totalDefects > 0) {
+        document.getElementById('aiDefectAlert').classList.remove('hidden');
+        document.getElementById('defectCountBtn').innerText = totalDefects;
+        document.getElementById('defectContainerWrapper').classList.remove('hidden');
+        document.getElementById('aiDefectList').innerHTML = defectHTML;
+    } else {
+        document.getElementById('defectContainerWrapper').classList.add('hidden');
+    }
+}
+
+// ฟังก์ชันเปิด/ปิด Accordion
+function toggleAiDefect() {
+    const acc = document.getElementById('aiDefectAccordion');
+    if (acc.classList.contains('hidden')) {
+        acc.classList.remove('hidden');
+    } else {
+        acc.classList.add('hidden');
+    }
+}
+</script>
