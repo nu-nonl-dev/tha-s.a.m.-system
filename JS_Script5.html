@@ -1,0 +1,733 @@
+<script>
+..
+.. //** ชุดโค้ดในส่วนอื่นของฟังชั่นอื่นๆ **//
+..
+  
+// =========================================================
+// 🛡️ J.A.R.V.I.S. SAFETY AUDIT ENGINE (DYNAMIC CHECKLIST)
+// =========================================================
+
+const safetyDictionary = {
+  "ถังดับเพลิง": ["เกจ์วัดความดันชี้ในโซนสีเขียว", "สลักนิรภัยและซีลพลาสติกไม่ขาด/อยู่สมบูรณ์", "สภาพตัวถังและสายฉีดไม่ผุกร่อน/ชำรุด", "วันหมดอายุเคมียังไม่หมดอายุ", "ไม่มีสิ่งของวางกีดขวางบริเวณหน้าจุดติดตั้งถัง", "มีการเขย่าเคมีอยู่เป็นประจำ", "จุดติดตั้งมีสภาพที่สมบูรณ์"],
+  "ตู้ FHC": ["กระจกหน้าตู้สมบูรณ์ ไม่มีแตกร้าว", "สายฉีดม้วนพับในสภาพพร้อมใช้งาน", "วาล์วน้ำปิดสนิท ไม่มีรอยน้ำรั่วซึม", "อุปกรณ์ที่จำเป็นมีอยู่ครบ", "ไม่มีสิ่งของวางกีดขวางบริเวณหน้าตู้", "จุดติดตั้งมีสภาพที่สมบูรณ์"],
+  "ป้ายทางออก/ทางหนีไฟ": ["ไฟ LED ติดสว่างมองเห็นชัดเจน", "ตัวป้ายไม่ชำรุดหรือมีแตกร้าว", "จุดติดตั้งมีสภาพที่สมบูรณ์"],
+  "ไฟฉุกเฉิน": ["กดปุ่ม Test แล้วไฟสว่างทันที (แบตปกติ)", "เลนส์ไฟชี้ในองศาที่ถูกต้อง", "เลนส์ไฟกดปุ่ม Test ติดสว่างทั้ง 2 ฝั่ง", "จุดติดตั้งมีสภาพที่สมบูรณ์"],
+  "ประตูหนีไฟ": ["ประตูหนีไฟปิดสนิทด้วยโช๊คอัพอัตโนมัติ", "ไม่มีสิ่งของวางกีดขวางประตูหนีไฟ", "ไม่ถูก ลิ่มไม้หรืออื่นๆ ขัดไว้", "ประตูหนีไฟอยู่ในสภาพที่สมบูรณ์"],
+  "กล้อง CCTV": ["หน้าเลนส์กล้องสะอาด มุมกล้องไม่ถูกบดบัง", "ภาพขึ้นจอมอนิเตอร์ครบ (ไม่มี Video Loss)", "ไม่มีไฟแจ้ง Error ที่เครื่อง และเวลาตรง", "จุดติดตั้งมีสภาพที่สมบูรณ์"]
+};
+
+// 🌟 สมุดหน้าเหลือง AI (ดักจับคำเหมือน)
+const safetyAliases = {
+  "ถังดับเพลิง": ["ถังดับเพลิง", "เคมีแห้ง", "co2", "โฟม"],
+  "ตู้ FHC": ["fhc", "ตู้สายฉีด", "ตู้ดับเพลิง", "โฮสริล", "สายฉีดน้ำ", "ตู้ fhc"],
+  "ป้ายทางออก/ทางหนีไฟ": ["ป้ายทางออก", "ป้ายไฟ", "ทางหนีไฟ", "exit"],
+  "ไฟฉุกเฉิน": ["ไฟฉุกเฉิน", "emergency", "ไฟสำรอง"],
+  "กล้อง CCTV": ["cctv", "กล้องวงจรปิด", "กล้อง"],
+  "ประตูหนีไฟ": ["ประตูหนีไฟ", "fire door", "ประตูทางออก"]
+};
+
+let sfCurrentStatus = []; 
+
+// =================================================================
+// 🛡️ จ่ายข้อมูลเข้า Smart Dropdown 
+// =================================================================
+if (typeof smartDropdownData !== 'undefined') {
+    smartDropdownData['sfInspector'] = ["คุณ นุ [ แอดมิน ]", "ช่างโจ", "ช่างอาร์ม", "ทีมช่าง THA", "รปภ.", "GSA.[ Night ]"];
+    smartDropdownData['sfFloor'] = ["G Flr.", "M Flr.", "M Flr. [ Office ]", "M Flr. [ หลังคาฝั่ง Office ]", "M Flr. [ หลังคาฝั่ง พื้นที่เช่า ]", "M Flr. [ Grab & Go ]", "2nd Flr.", "2nd Flr. [ Green Space ]", "3rd Flr.", "4th Flr.", "5th Flr.", "6th Flr.", "Rooftop.[ 6th Flr. ]"];
+    smartDropdownData['sfZone'] = ["โซน A [ หัวอาคาร/ริมถนนใหญ่ ]", "โซน B [ กลางอาคาร/บันไดกลาง ]", "โซน C [ ท้ายอาคาร/บันไดหลัง ]", "โซน D [ หน้าอาคาร/ริมถนนซอย ]", "โซน E [ ข้างอาคารติด ธ.กสิกร ]", "โซน F [ ออฟฟิศ ]"];
+}
+
+if (typeof initSmartDropdown === 'function') {
+    initSmartDropdown({ id: 'sfInspector', data: smartDropdownData['sfInspector'], allowOther: true });
+    initSmartDropdown({ id: 'sfFloor', data: smartDropdownData['sfFloor'], allowOther: true });
+    initSmartDropdown({ id: 'sfZone', data: smartDropdownData['sfZone'], allowOther: true });
+}
+
+// =========================================================
+// 🎙️ ฟังก์ชันค้นหาด้วยเสียงสำหรับช่อง Safety Asset
+// =========================================================
+// =========================================================
+// 🎙️ ฟังก์ชันค้นหาด้วยเสียง (แก้ป้าย Hint กลับดีไซน์เดิม & วางใต้รูปพรีวิว)
+// =========================================================
+function startVoiceSearchSf() {
+    const inputField = document.getElementById('sfAsset');
+    const micBtn = document.getElementById('sfMicBtn');
+    
+    if(micBtn && !micBtn.disabled) { 
+        micBtn.classList.add('scale-95', 'bg-green-200'); 
+        setTimeout(() => micBtn.classList.remove('scale-95', 'bg-green-200'), 150); 
+    }
+
+    if(inputField && !inputField.disabled) {
+        clearSfAssetOnly(); // ล้างค่าเดิมก่อนค้นหาด้วยเสียง
+
+        const blinkClass = 'ring-4 ring-green-400 bg-green-50/50 shadow-[0_0_15px_rgba(74,222,128,0.5)]';
+        inputField.className = inputField.className.replace('input-error', '') + ' ' + blinkClass + ' transition-all duration-150';
+        setTimeout(() => { 
+            inputField.classList.remove('ring-4', 'ring-green-400', 'bg-green-50/50', 'shadow-[0_0_15px_rgba(74,222,128,0.5)]'); 
+            setTimeout(() => { 
+                inputField.classList.add('ring-4', 'ring-green-400', 'bg-green-50/50', 'shadow-[0_0_15px_rgba(74,222,128,0.5)]');
+                setTimeout(() => { 
+                    inputField.classList.remove('ring-4', 'ring-green-400', 'bg-green-50/50', 'shadow-[0_0_15px_rgba(74,222,128,0.5)]');
+                }, 100);
+            }, 100);
+        }, 150);
+
+        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        inputField.focus();
+
+        // 🌟 ลบป้ายเก่าออกถ้ามีค้างอยู่
+        const oldHint = document.getElementById('jarvisHoloHintSf'); 
+        if(oldHint) oldHint.remove();
+        
+        // 🌟 สร้างป้าย Hint ด้วยคลาสของ Tailwind ล้วนๆ (ดีไซน์เดิม: ขาว ขอบน้ำเงิน ไม่เบี้ยว)
+        const hint = document.createElement('div');
+        hint.id = 'jarvisHoloHintSf';
+        hint.className = 'mt-4 w-full mx-auto bg-white border-2 border-blue-200 text-brandBlue font-bold rounded-2xl shadow-lg p-3 flex items-center justify-center gap-2 animate-bounce transition-all duration-300 relative z-10';
+        hint.innerHTML = '<span class="text-xl animate-pulse">👇</span> <span class="text-[13px] sm:text-sm tracking-wide">กดปุ่มใช้ไมค์ที่แป้นพิมพ์ด้านล่างนะครับ</span>';
+        
+        // 🌟 สั่งให้ไปต่อท้ายกล่อง "sfAssetPreviewContainer" พอดีเป๊ะ
+        const previewContainer = document.getElementById('sfAssetPreviewContainer');
+        if (previewContainer) {
+            previewContainer.parentNode.insertBefore(hint, previewContainer.nextSibling);
+        }
+        
+        // สั่งให้ป้ายหายไปเองเมื่อครบเวลา
+        setTimeout(() => { 
+            const currentHint = document.getElementById('jarvisHoloHintSf'); 
+            if(currentHint) { 
+                currentHint.classList.add('opacity-0', 'scale-95'); 
+                setTimeout(() => { if(currentHint) currentHint.remove(); }, 300); 
+            } 
+        }, 4500);
+    } 
+}
+
+// =========================================================
+// 🌟 [ระบบใหม่] ควบคุมการสลับร่างปุ่ม (แก้บั๊กปุ่มหาย 100%)
+// =========================================================
+function updateSfAssetButtonsState() {
+    const inputField = document.getElementById('sfAsset');
+    const vBtn = document.getElementById('sfDropdownToggleBtn');
+    const xBtn = document.getElementById('sfClearBtn');
+    const micBtn = document.getElementById('sfMicBtn');
+    const qrBtn = document.getElementById('sfQrBtn');
+    
+    if (!inputField) return;
+
+    const isLocked = inputField.disabled;
+    const hasValue = inputField.value.trim() !== '';
+    const isFocused = document.activeElement === inputField;
+
+    // เคลียร์ปุ่มทั้งหมดให้ซ่อนก่อนป้องกันการตีกัน
+    vBtn?.classList.add('hidden');
+    xBtn?.classList.add('hidden');
+    micBtn?.classList.add('hidden');
+    qrBtn?.classList.add('hidden');
+
+    if (isLocked) {
+        // 🔒 โหมดล็อค: โชว์ V (สีเทา) และ QR (สีเทา)
+        vBtn?.classList.remove('hidden');
+        qrBtn?.classList.remove('hidden');
+    } else {
+        // 🔓 โหมดปลดล็อคแล้ว
+        if (hasValue) {
+            // มีข้อมูล: โชว์ X (ล้างค่า) และ QR (แสกนทับ)
+            xBtn?.classList.remove('hidden');
+            qrBtn?.classList.remove('hidden');
+        } else {
+            // ช่องว่าง: โชว์ V
+            vBtn?.classList.remove('hidden');
+            
+            // หมุนลูกศร ^ ถ้ากำลังพิมพ์อยู่
+            const svgIcon = vBtn?.querySelector('svg');
+            if (isFocused) { svgIcon?.classList.add('rotate-180', 'text-brandBlue'); } 
+            else { svgIcon?.classList.remove('rotate-180', 'text-brandBlue'); }
+            
+            // สลับ Mic / QR
+            if (isFocused) {
+                micBtn?.classList.remove('hidden'); // พิมพ์อยู่ = โชว์ไมค์
+            } else {
+                qrBtn?.classList.remove('hidden'); // ไม่ได้พิมพ์ = โชว์แสกน QR
+            }
+        }
+    }
+}
+
+// =========================================================
+// 🌟 [ระบบใหม่] ดักจับการสแกน QR และการพิมพ์ (กันข้อมูลยาวเกิน)
+// =========================================================
+function handleSfAssetInput(el) {
+    let val = el.value;
+    
+    // ดักจับ QR Dump: ถ้ามีขีดคั่น ' - ' หรือท่อ ' | ' และข้อความยาวเกินไป
+    if ((val.includes(' - ') || val.includes(' | ')) && val.length > 10) {
+        let separator = val.includes(' - ') ? ' - ' : ' | ';
+        let idPart = val.split(separator)[0].trim(); // ดึงมาแค่รหัส เช่น "AST-012"
+        
+        // ค้นหาในฐานข้อมูลทันที
+        let matchedItem = (window.assetMasterList || []).find(a => a.id.toLowerCase() === idPart.toLowerCase());
+        
+        if (matchedItem) {
+            let matchedCat = "ถังดับเพลิง";
+            const assetStr = `${matchedItem.name} ${matchedItem.category}`.toLowerCase();
+            for (const [key, aliases] of Object.entries(safetyAliases)) {
+                if (aliases.some(alias => assetStr.includes(alias.toLowerCase()))) {
+                    matchedCat = key; break;
+                }
+            }
+            matchedItem.matchedSafetyCat = matchedCat;
+            
+            // สั่งเลือกอัตโนมัติ แล้วจบการทำงาน!
+            selectSfAsset(matchedItem);
+            return; 
+        }
+    }
+
+    // กรณีพิมพ์ปกติ
+    el.style.height = 'auto'; 
+    el.style.height = `${el.scrollHeight}px`;
+    if(val.trim() !== '') { el.classList.add('has-value'); } 
+    else { el.classList.remove('has-value'); }
+    
+    updateSfAssetButtonsState();
+    renderSfAssetDropdown(val);
+}
+
+// =========================================================
+// 🔍 1. ฟังก์ชันกรองอุปกรณ์ (อัปเกรดให้ยืดหยุ่นขึ้น)
+// =========================================================
+function renderSfAssetDropdown(filterText) {
+    let filterStr = (typeof filterText === 'string') ? filterText.toLowerCase().trim() : '';
+    const dropdown = document.getElementById('sfAssetDropdown');
+    const inputField = document.getElementById('sfAsset');
+    if(!dropdown || !inputField) return;
+    
+    dropdown.innerHTML = '';
+    const searchTerms = filterStr.split(/\s+/);
+    
+    const getCheckVal = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return '';
+        return (el.value === 'อื่นๆ' || el.value === 'other') ? (document.getElementById(`new_${id}_input`)?.value || '') : el.value;
+    };
+
+    const rawFloor = getCheckVal('sfFloor');
+    const rawZone = getCheckVal('sfZone');
+    
+    const cleanFloor = rawFloor.split('[')[0].trim().toLowerCase();
+    const cleanZone = rawZone.split('[')[0].trim().toLowerCase();
+
+    const filtered = (window.assetMasterList || []).filter(a => {
+        const assetStr = `${a.name || ''} ${a.category || ''}`.toLowerCase();
+        let matchedCat = null;
+
+        for (const [key, aliases] of Object.entries(safetyAliases)) {
+            if (aliases.some(alias => assetStr.includes(alias.toLowerCase()))) {
+                matchedCat = key; break;
+            }
+        }
+        if (!matchedCat) return false;
+
+        const aLoc = (a.location || '').toLowerCase();
+        
+        // 🌟 Smart Filter: ถ้าชั้นไม่ตรง ตัดทิ้งเลย
+        if (cleanFloor && !aLoc.includes(cleanFloor)) return false;
+        
+        // 🌟 Smart Filter: โซนยืดหยุ่นขึ้น
+        if (cleanZone && aLoc.includes('โซน') && !aLoc.includes(cleanZone)) return false;
+
+        const fullString = `${a.id || ''} ${a.name || ''} ${a.category || ''} ${a.location || ''}`.toLowerCase();
+        a.matchedSafetyCat = matchedCat; 
+
+        return searchTerms.every(term => fullString.includes(term));
+    });
+
+    if(filtered.length === 0) {
+        dropdown.innerHTML = '<li class="p-4 text-sm font-medium text-gray-500 text-center">❌ ไม่พบข้อมูลอุปกรณ์ <br><span class="text-xs text-gray-400">โปรดตรวจสอบรหัส หรือพิมพ์ชื่อให้ถูกต้อง</span></li>';
+    } else {
+        filtered.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'p-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0 group';
+            li.innerHTML = `
+                <div class="flex flex-col gap-1 w-full">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="font-bold text-sm text-brandBlue group-hover:text-blue-700 transition-colors">${item.id}</span>
+                        <span class="text-[10px] font-bold bg-blue-50 text-brandBlue px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">${item.location || 'ไม่ระบุจุด'}</span>
+                    </div>
+                    <span class="text-sm font-semibold text-gray-800 leading-tight">${item.name}</span>
+                    <div class="mt-0.5"><span class="text-[10px] font-medium bg-blue-100/50 text-brandBlue px-2 py-0.5 rounded-full inline-block">${item.matchedSafetyCat}</span></div>
+                </div>
+            `;
+            li.onclick = () => selectSfAsset(item);
+            dropdown.appendChild(li);
+        });
+    }
+    dropdown.classList.remove('hidden');
+}
+
+// 🌟 ฟังก์ชันจัดการตอนกดเลือกอุปกรณ์ (แยกออกมาเพื่อให้ใช้งานร่วมกับระบบ QR ได้)
+function selectSfAsset(item) {
+    const inputField = document.getElementById('sfAsset');
+    if (!inputField) return;
+
+    inputField.value = `${item.id} | ${item.name}`;
+    inputField.classList.add('has-value');
+    inputField.dataset.category = item.matchedSafetyCat || item.category; 
+    inputField.style.height = 'auto'; 
+    inputField.style.height = `${inputField.scrollHeight}px`;
+    
+    updateSfAssetButtonsState();
+    document.getElementById('sfAssetDropdown')?.classList.add('hidden'); 
+    
+    if (typeof fetchAssetPreview === 'function') fetchAssetPreview(item.id, 'sfAsset'); 
+    generateSafetyChecklist(item.matchedSafetyCat || item.category);
+}
+
+function toggleSfAssetDropdown() {
+    const dropdown = document.getElementById('sfAssetDropdown');
+    const inputField = document.getElementById('sfAsset');
+    if (dropdown) {
+        if (dropdown.classList.contains('hidden')) { 
+            renderSfAssetDropdown(inputField ? inputField.value : ''); 
+            if(inputField) inputField.focus(); 
+        } else { dropdown.classList.add('hidden'); }
+    }
+    updateSfAssetButtonsState();
+}
+
+// =========================================================
+// 🧹 ฟังก์ชันเคลียร์ค่าเฉพาะช่อง (สำหรับปุ่ม X)
+// =========================================================
+function clearSfAssetOnly() {
+    const aInp = document.getElementById('sfAsset');
+    if (aInp) {
+        aInp.value = '';
+        aInp.classList.remove('has-value');
+        aInp.style.height = 'auto'; 
+        aInp.focus(); 
+    }
+    updateSfAssetButtonsState();
+
+    document.getElementById('sfAssetDropdown')?.classList.add('hidden');
+    if(typeof fetchAssetPreview === 'function') fetchAssetPreview('', 'sfAsset');
+    
+    // 🌟 สั่งซ่อนปุ่มขยายรูปตรงนี้ครับ
+    document.getElementById('sfExpandAssetImgBtn')?.classList.add('hidden');
+    
+    sfCurrentStatus = [];
+    const checklistDiv = document.getElementById('checklistItems');
+    if (checklistDiv) checklistDiv.innerHTML = '';
+    const checklistContainer = document.getElementById('safetyChecklistContainer');
+    if (checklistContainer) checklistContainer.classList.add('hidden');
+    
+    if (typeof clearSfUploadImage === 'function') clearSfUploadImage();
+    const evidenceContainer = document.getElementById('evidenceContainer');
+    if (evidenceContainer) evidenceContainer.classList.add('hidden');
+    
+    const subBtn = document.getElementById('sfSubmitBtn');
+    if (subBtn) {
+        subBtn.disabled = true;
+        subBtn.className = "w-full bg-gray-300 text-gray-500 rounded-2xl px-6 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-all cursor-not-allowed";
+    }
+}
+
+
+// =========================================================
+// 🛡️ 4. ระบบสร้าง Checklist 
+// =========================================================
+function generateSafetyChecklist(cat) {
+    let matchedCat = "ถังดับเพลิง"; 
+    for (const key in safetyDictionary) {
+        if (cat.includes(key) || key.includes(cat)) { matchedCat = key; break; }
+    }
+
+    const questions = safetyDictionary[matchedCat];
+    const itemsDiv = document.getElementById('checklistItems');
+    sfCurrentStatus = new Array(questions.length).fill(null);
+    
+    itemsDiv.innerHTML = questions.map((q, i) => `
+        <div id="checklistItem_${i}" class="flex items-center justify-between p-3 sm:p-4 bg-white border-2 border-gray-100 rounded-2xl sm:rounded-3xl shadow-sm transition-all duration-300 gap-3">
+            <div class="flex flex-col gap-1 flex-1 min-w-0 pr-2">
+                <span class="text-[10px] font-black text-brandBlue uppercase tracking-tighter opacity-50">Checklist ${i + 1}</span>
+                <span class="text-[13px] sm:text-sm font-bold text-gray-800 leading-snug break-words whitespace-normal">${q}</span>
+            </div>
+            <div class="flex gap-2 justify-end items-center flex-shrink-0">
+                <button type="button" id="btnPass_${i}" onclick="answerChecklist(${i}, true)" 
+                    class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-[12px] sm:rounded-[14px] border-2 border-gray-100 bg-white shadow-sm text-gray-300 transition-all active:scale-95">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+                <button type="button" id="btnFail_${i}" onclick="answerChecklist(${i}, false)" 
+                    class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-[12px] sm:rounded-[14px] border-2 border-gray-100 bg-white shadow-sm text-gray-300 transition-all active:scale-95">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('safetyChecklistContainer').classList.remove('hidden');
+    checkFinalStatus();
+}
+
+// =========================================================
+// 🛡️ 5. ระบบบันทึกผลการกด 
+// =========================================================
+function answerChecklist(index, isPass) {
+    sfCurrentStatus[index] = isPass;
+    const btnPass = document.getElementById(`btnPass_${index}`);
+    const btnFail = document.getElementById(`btnFail_${index}`);
+    const itemCard = document.getElementById(`checklistItem_${index}`); 
+
+    if (isPass) {
+        btnPass.className = "w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-[12px] sm:rounded-[14px] border-2 border-green-500 bg-green-100 text-green-600 shadow-[inset_1px_1px_3px_rgba(0,0,0,0.1)] transform scale-105 z-10 transition-all";
+        btnFail.className = "w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-[12px] sm:rounded-[14px] border-2 border-gray-100 bg-gray-50 text-gray-200 opacity-40 scale-95 transition-all";
+        itemCard.className = "flex items-center justify-between p-3 sm:p-4 bg-green-50/30 border-2 border-green-300 rounded-2xl sm:rounded-3xl shadow-sm transition-all duration-300 gap-3";
+    } else {
+        btnFail.className = "w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-[12px] sm:rounded-[14px] border-2 border-red-500 bg-red-100 text-red-600 shadow-[inset_1px_1px_3px_rgba(0,0,0,0.1)] transform scale-105 z-10 animate-shake transition-all";
+        btnPass.className = "w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-[12px] sm:rounded-[14px] border-2 border-gray-100 bg-gray-50 text-gray-200 opacity-40 scale-95 transition-all";
+        itemCard.className = "flex items-center justify-between p-3 sm:p-4 bg-red-50/30 border-2 border-red-300 rounded-2xl sm:rounded-3xl shadow-sm transition-all duration-300 gap-3";
+    }
+
+    checkFinalStatus();
+}
+
+// =========================================================
+// 🛡️ 6. สคริปต์อัปโหลดรูประบบใหม่ (Real-time Preview)
+// =========================================================
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('sfImage');
+    if(fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const clearBtn = document.getElementById('sfClearImageBtn');
+            const previewImg = document.getElementById('sfUploadPreviewImg');
+            const placeholder = document.getElementById('sfUploadPreviewPlaceholder');
+
+            if (file) {
+                if(clearBtn) clearBtn.classList.remove('hidden');
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    if(previewImg) { previewImg.src = evt.target.result; previewImg.classList.remove('hidden'); }
+                    if(placeholder) placeholder.classList.add('hidden');
+                }
+                reader.readAsDataURL(file);
+            } else { clearSfUploadImage(); }
+        });
+    }
+});
+
+function clearSfUploadImage() {
+    const fileInp = document.getElementById('sfImage');
+    const clearBtn = document.getElementById('sfClearImageBtn');
+    const previewImg = document.getElementById('sfUploadPreviewImg');
+    const placeholder = document.getElementById('sfUploadPreviewPlaceholder');
+    const expandBtn = document.getElementById('sfExpandUploadImgBtn'); // 🌟 เพิ่มบรรทัดนี้
+
+    if(fileInp) fileInp.value = '';
+    if(clearBtn) clearBtn.classList.add('hidden');
+    if(expandBtn) expandBtn.classList.add('hidden'); // 🌟 ซ่อนปุ่มขยาย
+    if(previewImg) { previewImg.src = ''; previewImg.classList.add('hidden'); }
+    if(placeholder) placeholder.classList.remove('hidden');
+}
+
+// =========================================================
+// 🖼️ ฟังก์ชันขยายรูปภาพเต็มจอ (ใช้ร่วมกันได้ทั้งช่องค้นหา และ ช่องแนบหลักฐาน)
+// =========================================================
+// =========================================================
+// 🖼️ ฟังก์ชันขยายรูปภาพเต็มจอ (ล็อกปุ่ม X ให้อยู่ติดมุมขอบรูปภาพเป๊ะๆ)
+// =========================================================
+function expandImageFullscreen(imgId) {
+    const imgElement = document.getElementById(imgId);
+    
+    // ดักจับว่าถ้ารูปยังไม่มี หรือยังไม่ได้โหลด ไม่ต้องทำงาน
+    if (!imgElement || !imgElement.src || imgElement.src === window.location.href) return;
+
+    Swal.fire({
+        imageUrl: imgElement.src,
+        imageAlt: 'Preview Image',
+        width: 'auto', // 🌟 ปรับให้ความกว้างของ Popup พอดีกับตัวรูปเป๊ะๆ
+        showConfirmButton: false,
+        showCloseButton: true, // เปิดปุ่ม (X)
+        customClass: {
+            // 🌟 ใส่ relative เพื่อบังคับให้ปุ่ม X เกาะติดกรอบนี้เท่านั้น
+            popup: 'rounded-3xl bg-transparent relative w-auto max-w-[95%]', 
+            image: 'rounded-2xl max-h-[80vh] object-contain mb-0', 
+            // 🌟 เปลี่ยนจาก fixed เป็น absolute และปรับพิกัดให้อยู่มุมรูปพอดี
+            closeButton: 'absolute top-0 right-0 z-[99999] rounded-2xl w-10 h-10 flex items-center justify-center backdrop-blur-md bg-white/20 hover:bg-white/40 border border-white/40 text-white shadow-lg transition-all translate-x-2 -translate-y-2' 
+        }
+    });
+}
+
+// --- 🛡️ ฟังก์ชันส่งข้อมูล ---
+async function submitSafetyForm() {
+    const btn = document.getElementById('sfSubmitBtn');
+    if (!btn) return;
+
+    btn.disabled = true;
+    if (typeof showLoadingAlert === 'function') { showLoadingAlert('S.A.M. กำลังประมวลผลข้อมูล...', 'upload'); }
+
+    try {
+        const assetInp = document.getElementById('sfAsset');
+        let category = assetInp?.dataset.category || "ถังดับเพลิง";
+        
+        let matchedCat = "ถังดับเพลิง"; 
+        for (const key in safetyDictionary) { if (category.includes(key) || key.includes(category)) { matchedCat = key; break; } }
+        const questions = safetyDictionary[matchedCat];
+
+        const detailedResults = sfCurrentStatus.map((status, i) => {
+            const icon = status ? '✅ Pass' : '❌ Fail';
+            return `${icon} | ${questions[i]}`;
+        }).join('\n');
+
+        let rawAsset = assetInp?.value || "ไม่ระบุอุปกรณ์";
+        let formattedAssetName = rawAsset;
+
+        if (rawAsset.includes('|') || rawAsset.includes(' - ')) {
+            let separator = rawAsset.includes('|') ? '|' : ' - ';
+            let parts = rawAsset.split(separator).map(p => p.trim());
+            if (parts.length === 2) {
+                let isPart0_ID = /^[A-Za-z0-9]/.test(parts[0]);
+                let isPart1_ID = /^[A-Za-z0-9]/.test(parts[1]);
+                if (isPart1_ID && !isPart0_ID) { formattedAssetName = `${parts[1]} | ${parts[0]}`; } 
+                else { formattedAssetName = `${parts[0]} | ${parts[1]}`; }
+            }
+        }
+
+        const getSmartValue = (id) => {
+            const mainVal = document.getElementById(id)?.value;
+            if (mainVal === 'อื่นๆ' || mainVal === 'other') return document.getElementById(`new_${id}_input`)?.value || "ไม่ระบุ";
+            return mainVal || "ไม่ระบุ";
+        };
+
+        const formData = {
+            floor: getSmartValue('sfFloor'),
+            zone: getSmartValue('sfZone'),
+            inspector: getSmartValue('sfInspector'),
+            assetName: formattedAssetName, 
+            category: matchedCat,
+            checklistData: detailedResults,
+            severity: document.querySelector('input[name="severity"]:checked')?.value || "1",
+            remarks: document.getElementById('sfRemarks')?.value || "",
+            createGmrl: document.getElementById('sfCreateGmrl')?.checked || false
+        };
+
+        const imgInput = document.getElementById('sfImage');
+        if (imgInput?.files && imgInput.files.length > 0 && typeof readFileAsBase64 === 'function') {
+            formData.sfImage = await readFileAsBase64(imgInput.files[0]);
+        }
+
+        google.script.run
+            .withSuccessHandler(res => {
+                btn.disabled = false;
+                if (res.success) {
+                    if (typeof speakAI === 'function') speakAI("บันทึกผลการตรวจสอบเรียบร้อยค่ะ");
+                    
+                    Swal.fire({ 
+                        icon: 'success', 
+                        title: 'บันทึกสำเร็จ', 
+                        text: res.message, 
+                        customClass: { popup: 'rounded-3xl' } 
+                    }).then(() => {
+                        document.getElementById('safetyForm').reset();
+                        if (typeof clearSfAsset === 'function') clearSfAsset();
+                        
+                        // 🎯 สั่งเด้งหน้าสรุป SA ทันที (Instant Mode)
+                        if (typeof openReportModal === 'function') {
+                            // บังคับเปลี่ยนตัวเลือกเป็น Safety ก่อนเปิด
+                            const rpType = document.getElementById('reportType');
+                            if (rpType) rpType.value = 'Safety'; 
+                            
+                            // ใช้ setTimeout เผื่อให้ DOM อัปเดตทัน
+                            setTimeout(() => {
+                                // เรียกเปิด Modal แบบระบุ ID ทันที
+                                openReportModal('Instant', res.auditId); 
+                            }, 100); 
+                        }
+                    });
+                } else { Swal.fire('Error', res.message, 'error'); }
+            })
+            .withFailureHandler(err => {
+                btn.disabled = false;
+                Swal.fire('Server Error', err.message, 'error');
+            })
+            .saveSafetyAuditData(formData);
+
+    } catch (e) {
+        btn.disabled = false;
+        Swal.fire('Error', e.message, 'error');
+    }
+}
+
+
+function checkFinalStatus() {
+    const evidenceBox = document.getElementById('evidenceContainer');
+    const submitBtn = document.getElementById('sfSubmitBtn');
+    
+    const isAllAnswered = sfCurrentStatus.length > 0 && sfCurrentStatus.every(val => val !== null);
+    const hasFail = sfCurrentStatus.includes(false);
+
+    if (isAllAnswered) {
+        submitBtn.disabled = false;
+        submitBtn.className = "w-full btn-gradient text-white rounded-2xl px-6 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-all transform active:scale-95 shadow-xl animate-fadeIn";
+        if (hasFail) { evidenceBox.classList.remove('hidden'); } else { evidenceBox.classList.add('hidden'); }
+    } else {
+        submitBtn.disabled = true;
+        submitBtn.className = "w-full bg-gray-300 text-gray-500 rounded-2xl px-6 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-all shadow-none cursor-not-allowed";
+        evidenceBox.classList.add('hidden');
+    }
+}
+
+function checkAutoGmrl() {
+    const severity = document.querySelector('input[name="severity"]:checked')?.value;
+    const toggleBox = document.getElementById('autoGmrlToggle');
+    if (severity === "3" || severity === "4") {
+        if(toggleBox) toggleBox.classList.remove('hidden');
+    } else {
+        if(toggleBox) toggleBox.classList.add('hidden');
+    }
+}
+
+// =========================================================
+// 🛡️ 7. ระบบ Drill-down Monitor (เชื่อมกับตัวอัปเดตปุ่ม)
+// =========================================================
+document.addEventListener('click', function(e) {
+    setTimeout(() => {
+        const getCheckVal = (id) => {
+            const hVal = document.getElementById(id)?.value;
+            return (hVal === 'อื่นๆ') ? document.getElementById(`new_${id}_input`)?.value : hVal;
+        };
+
+        const floorVal = getCheckVal('sfFloor');
+        const zoneVal = getCheckVal('sfZone');
+        
+        const zDisplay = document.getElementById('sfZoneDisplay');
+        const zBtn = document.getElementById('sfZone_toggleBtn');
+        
+        const aDisplay = document.getElementById('sfAsset');
+        const aBtn = document.getElementById('sfDropdownToggleBtn');
+        const aMic = document.getElementById('sfMicBtn');
+        const aQr = document.getElementById('sfQrBtn'); 
+
+        if (floorVal && zDisplay && zDisplay.disabled) {
+            zDisplay.disabled = false;
+            zDisplay.classList.replace('bg-gray-100', 'bg-white');
+            zDisplay.classList.replace('text-gray-400', 'text-gray-800');
+            zDisplay.classList.add('font-bold');
+            if(zBtn) {
+                zBtn.disabled = false;
+                zBtn.classList.replace('text-gray-400', 'text-[#2563eb]');
+                zBtn.classList.replace('bg-gray-200', 'bg-blue-50');
+            }
+        }
+
+        if (zoneVal && aDisplay && aDisplay.disabled) {
+            aDisplay.disabled = false;
+            aDisplay.classList.replace('bg-gray-100', 'bg-white');
+            aDisplay.classList.replace('text-gray-400', 'text-brandDark');
+            if(aBtn) {
+                aBtn.disabled = false;
+                aBtn.classList.replace('text-gray-400', 'text-[#2563eb]');
+                aBtn.classList.replace('bg-gray-200', 'bg-white');
+            }
+            if(aMic) {
+                aMic.disabled = false;
+                aMic.classList.replace('bg-gray-100', 'bg-gradient-to-br');
+                aMic.classList.replace('text-gray-400', 'text-green-600');
+                aMic.classList.add('from-green-50', 'to-green-100', 'shadow-md');
+            }
+            if(aQr) {
+                aQr.disabled = false;
+                aQr.classList.replace('bg-gray-100', 'bg-gradient-to-br');
+                aQr.classList.replace('text-gray-400', 'text-[#06245C]');
+                aQr.classList.add('from-blue-50', 'to-blue-100', 'shadow-md');
+            }
+            // 🌟 อัปเดตสถานะปุ่มตอนปลดล็อก
+            updateSfAssetButtonsState();
+        }
+    }, 200);
+});
+
+function resetSafetyDrilldown() {
+    const zDisplay = document.getElementById('sfZoneDisplay');
+    const zBtn = document.getElementById('sfZone_toggleBtn');
+    if(zDisplay) { 
+        zDisplay.disabled = true; zDisplay.classList.replace('bg-white', 'bg-gray-100'); 
+        zDisplay.classList.replace('text-gray-800', 'text-gray-400'); zDisplay.classList.remove('font-bold'); zDisplay.value = '';
+    }
+    if(zBtn) { zBtn.disabled = true; zBtn.classList.replace('text-[#2563eb]', 'text-gray-400'); zBtn.classList.replace('bg-blue-50', 'bg-gray-200'); }
+    if(typeof clearSmartDropdown === 'function') clearSmartDropdown('sfZone');
+    
+    // เคลียร์อุปกรณ์ด้วย (ล้างทั้งหมด)
+    clearSfAsset();
+}
+
+
+// =========================================================
+// 🧹 ฟังก์ชันเคลียร์ค่าหน้า Safety แบบถอนรากถอนโคน
+// =========================================================
+function clearSfAsset() {
+    sfCurrentStatus = []; 
+    
+    const checklistDiv = document.getElementById('checklistItems');
+    if (checklistDiv) checklistDiv.innerHTML = ''; 
+    const checklistContainer = document.getElementById('safetyChecklistContainer');
+    if (checklistContainer) checklistContainer.classList.add('hidden');
+
+    const aInp = document.getElementById('sfAsset');
+    if (aInp) {
+        aInp.value = '';
+        aInp.classList.remove('has-value');
+        aInp.style.height = 'auto'; 
+        aInp.disabled = true; 
+        aInp.classList.replace('bg-white', 'bg-gray-100');
+        aInp.classList.replace('text-brandDark', 'text-gray-400');
+    }
+
+    const tgBtn = document.getElementById('sfDropdownToggleBtn');
+    if (tgBtn) { 
+        tgBtn.disabled = true; 
+        tgBtn.classList.replace('text-[#2563eb]', 'text-gray-400');
+        tgBtn.classList.replace('bg-white', 'bg-gray-200');
+    }
+
+    const aMic = document.getElementById('sfMicBtn');
+    if(aMic) {
+        aMic.disabled = true;
+        aMic.classList.replace('bg-gradient-to-br', 'bg-gray-100');
+        aMic.classList.replace('text-green-600', 'text-gray-400');
+        aMic.classList.remove('from-green-50', 'to-green-100', 'shadow-md');
+    }
+
+    const aQr = document.getElementById('sfQrBtn');
+    if(aQr) {
+        aQr.disabled = true;
+        aQr.classList.replace('bg-gradient-to-br', 'bg-gray-100');
+        aQr.classList.replace('text-[#06245C]', 'text-gray-400');
+        aQr.classList.remove('from-blue-50', 'to-blue-100', 'shadow-md');
+    }
+
+    updateSfAssetButtonsState();
+
+    if(typeof fetchAssetPreview === 'function') fetchAssetPreview('', 'sfAsset');
+    
+    // 🌟 สั่งซ่อนปุ่มขยายรูปตรงนี้ด้วยครับ
+    document.getElementById('sfExpandAssetImgBtn')?.classList.add('hidden');
+
+    clearSfUploadImage();
+
+    const evidenceContainer = document.getElementById('evidenceContainer');
+    if (evidenceContainer) evidenceContainer.classList.add('hidden');
+    
+    const radios = document.querySelectorAll('input[name="severity"]');
+    radios.forEach(r => r.checked = false);
+    
+    const autoGmrlToggle = document.getElementById('autoGmrlToggle');
+    if(autoGmrlToggle) autoGmrlToggle.classList.add('hidden');
+
+    const btnSubmit = document.getElementById('sfSubmitBtn');
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.className = "w-full bg-gray-300 text-gray-500 rounded-2xl px-6 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-all cursor-not-allowed";
+    }
+}
+</script>
